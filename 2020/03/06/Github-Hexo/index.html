@@ -1,0 +1,96 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description" content=""><title>利用Github从零开始搭建Hexo博客，可迁移 | 不会飞的小白</title><link rel="stylesheet" type="text/css" href="/css/style.css?v=0.0.0"><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/normalize/8.0.1/normalize.min.css"><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/pure/1.0.0/pure-min.css"><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/pure/1.0.0/grids-responsive-min.css"><link rel="stylesheet" href="//lib.baomitu.com/font-awesome/4.7.0/css/font-awesome.min.css"><script type="text/javascript" src="//lib.baomitu.com/jquery/3.4.0/jquery.min.js"></script><link rel="icon" mask="" sizes="any" href="/favicon.ico"><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"><link rel="alternate" type="application/atom+xml" href="/atom.xml"><meta name="generator" content="Hexo 4.2.0"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">利用Github从零开始搭建Hexo博客，可迁移</h1><a id="logo" href="/.">不会飞的小白</a><p class="description">Stay Hungry, Stay Foolish</p></div><div id="nav-menu"><a class="current" href="/."><i class="fa fa-home"> 首页</i></a><a href="/archives/"><i class="fa fa-archive"> 归档</i></a><a href="/about/"><i class="fa fa-user"> 关于</i></a><a href="/atom.xml"><i class="fa fa-rss"> 订阅</i></a></div></div><div class="pure-g" id="layout"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post"><h1 class="post-title">利用Github从零开始搭建Hexo博客，可迁移</h1><div class="post-meta">Mar 6, 2020<span> | </span><span class="category"><a href="/categories/%E6%9D%82%E8%AE%B0/">杂记</a></span></div><div class="clear"><div class="toc-article" id="toc"><div class="toc-title">文章目录</div><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#准备"><span class="toc-number">1.</span> <span class="toc-text">准备</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#创建步奏"><span class="toc-number">2.</span> <span class="toc-text">创建步奏</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#hexo迁移"><span class="toc-number">3.</span> <span class="toc-text">hexo迁移</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#相关配置"><span class="toc-number">4.</span> <span class="toc-text">相关配置</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#订阅-rss"><span class="toc-number">4.1.</span> <span class="toc-text">订阅 rss</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#创建文章"><span class="toc-number">4.2.</span> <span class="toc-text">创建文章</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#创建标签页-tags"><span class="toc-number">4.3.</span> <span class="toc-text">创建标签页 tags</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#分类页-categories"><span class="toc-number">4.4.</span> <span class="toc-text">分类页 categories</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#搜索页"><span class="toc-number">4.5.</span> <span class="toc-text">搜索页</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#404页面"><span class="toc-number">4.6.</span> <span class="toc-text">404页面</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#创建about"><span class="toc-number">4.7.</span> <span class="toc-text">创建about</span></a></li></ol></li></ol></div></div><div class="post-content"><h2 id="准备"><a href="#准备" class="headerlink" title="准备"></a>准备</h2><ol>
+<li>安装Node.js，安装完成之后可以正常使用npm命令</li>
+<li>安装hexo，<code>npm install -g hexo-cli</code></li>
+</ol>
+<h2 id="创建步奏"><a href="#创建步奏" class="headerlink" title="创建步奏"></a>创建步奏</h2><ol>
+<li><p>创建git仓库，这里需要注意一下，GitPage会默认给分配二级域名，但是当仓库名与账号组织名称一样的情况下会省略掉二级域名，所以这里创建的名称为<code>{yourname}.github.io</code>，一定是以<code>github.io</code>结尾的。当然也可以创建其他的。只是在之后的配置上略有不同。</p>
+</li>
+<li><p>创建仓库时使用readme进行初始化。</p>
+</li>
+<li><p>同时新建一个hexo分支，并设置为默认分支。</p>
+</li>
+<li><p>使用<code>hexo init {name}</code>来初始化，或者新建一个<code>{name}</code>文件夹，在该文件夹下，执行<code>hexo init</code>命令是一样的效果。</p>
+</li>
+<li><p>依次执行</p>
+<p> <code>hexo clean</code>：clean<br> <code>hexo g</code>：generate，编译生成HTML代码，放在根目录下的public下。<br> <code>hexo s</code>：serve，提供serve命令把博客在本地运行起来，然后点击给出的链接就可以正常的使用了，如果链接打不开，可能是端口被占用，可以使用<code>hexo s -p 端口号</code>来指定端口号。</p>
+</li>
+<li><p>我这里是用了一个相对比较简洁的主题：<a href="https://github.com/tufu9441/maupassant-hexo" target="_blank" rel="noopener">maupassant</a>，以此为例，大家喜欢什么主题自己配置就好。</p>
+ <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">git clone https:&#x2F;&#x2F;github.com&#x2F;tufu9441&#x2F;maupassant-hexo.git themes&#x2F;maupassant</span><br><span class="line"></span><br><span class="line">npm install hexo-renderer-pug --save</span><br><span class="line"></span><br><span class="line">npm install hexo-renderer-sass --save</span><br></pre></td></tr></table></figure>
+
+<p> 依次执行命令进行配置就好了。随后在根目录下的<code>_config.yml</code>文件里配置： <code>theme：maupassant</code>。</p>
+</li>
+</ol>
+<ol start="7">
+<li><p>删除主题下的git。这里有一点要注意的，在remote远程仓库之前，要把<b>themes文件夹</b>拉下来的主题，删除对应的<b>.git</b>文件删除掉。因为外部已经有了git，内部文件夹也有git时会出现问题。</p>
+</li>
+<li><p>配置根目录下的<code>_config.yml</code>文件</p>
+ <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># Site</span><br><span class="line">title: 不会飞的小白</span><br><span class="line">subtitle: &#39;Stay Hungry, Stay Foolish&#39;</span><br><span class="line">description: &#39;&#39;</span><br><span class="line">keywords: iOS, Swift, GitHub</span><br><span class="line">author: 不会飞的小白</span><br><span class="line">language: zh-CN</span><br><span class="line">timezone: &#39;&#39;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p><b>Site里头的东西，根据自身想法看着写就行。有一个需要注意的是language，它的值是根据对应的Theme中的语言相对应的。</b></p>
+</blockquote>
+ <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># URL</span><br><span class="line">## If your site is put in a subdirectory, set url as &#39;http:&#x2F;&#x2F;yoursite.com&#x2F;child&#39; and root as &#39;&#x2F;child&#x2F;&#39;</span><br><span class="line">url: http:&#x2F;&#x2F;liujiaboy.github.io&#x2F;</span><br><span class="line">root: &#x2F;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><b>这里也需要注意。如果添加了搜索功能或者没有按照{name}.github.io这种命名方式创建的，这里的是必须要填写的。URL：为Github Page生成后对应的地址。root：为哪一级为根目录。</b></p>
+</blockquote>
+ <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"># Extensions</span><br><span class="line">## Plugins: https:&#x2F;&#x2F;hexo.io&#x2F;plugins&#x2F;</span><br><span class="line">## Themes: https:&#x2F;&#x2F;hexo.io&#x2F;themes&#x2F;</span><br><span class="line">theme: maupassant</span><br><span class="line">#主题</span><br><span class="line"></span><br><span class="line"># Deployment</span><br><span class="line">## Docs: https:&#x2F;&#x2F;hexo.io&#x2F;docs&#x2F;deployment.html</span><br><span class="line">deploy:</span><br><span class="line">  type: git</span><br><span class="line">  repo: https:&#x2F;&#x2F;github.com&#x2F;liujiaboy&#x2F;liujiaboy.github.io.git</span><br><span class="line">  branch: master</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p><b>这里是对应的仓库地址，type一定是 git类型，分支可以选择，我这里是master。</b></p>
+</blockquote>
+</li>
+<li><p>上面的配置完成之后，再执行<b>步奏5</b>，本地预览没问题后，可以直接走发布。而发布也就是将生成的public文件中的内容push到deploy对应的仓库的分支中。</p>
+<p> <code>hexo d</code>:deploy: 发布。<br> 如果出现问题，执行<code>npm install hexo-deployer-git</code>安装git插件。</p>
+</li>
+<li><p>这个时候，可以在根目录下，remote远程仓库了。</p>
+<p><code>git remote add origin &lt;远程版本库URL&gt;</code>。这个时候本地默认就是之前创建的<code>hexo</code>分支。</p>
+<p>执行<code>git add .</code>, <code>git commit -m&quot;xxx&quot;</code>之后，在push之前，先把远程分支上的内容pull下来。这个时候执行</p>
+<p><code>git pull origin hexo</code></p>
+<p>如果出现问题，是因为本地有提交内容无法完成merge操作。将上面的执行命令改为</p>
+<p><code>git pull origin hexo --allow-unrelated-histories</code></p>
+<p>完成merge操作之后，执行<code>git push origin hexo</code>就可以了。</p>
+</li>
+</ol>
+<p>这个时候就已经完成了整体的库都放在Github上了。默认分支hexo存放所有的数据，master分支存放Github Page需要的数据。这就可以开心的玩耍了，也不用担心换设备迁移带来的问题了。</p>
+<h2 id="hexo迁移"><a href="#hexo迁移" class="headerlink" title="hexo迁移"></a>hexo迁移</h2><ol>
+<li><p>确保当前设备已经有Node.js, hexo环境。</p>
+</li>
+<li><p>从远程仓库clone到指定文件夹。</p>
+</li>
+<li><p>在该文件夹下，执行</p>
+ <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">npm install hexo</span><br><span class="line">npm install</span><br><span class="line">npm install hexo-deployer-git</span><br></pre></td></tr></table></figure>
+
+<p> 这个时候就没必要执行<code>hexo init</code>了，因为当文件夹下有内容的时候跟本执行不了，会报错。</p>
+</li>
+<li><p>就可以开心的玩耍了。</p>
+</li>
+</ol>
+<h2 id="相关配置"><a href="#相关配置" class="headerlink" title="相关配置"></a>相关配置</h2><h3 id="订阅-rss"><a href="#订阅-rss" class="headerlink" title="订阅 rss"></a>订阅 rss</h3><p>博客一般都需要rss订阅，如果要开启，需要安装一个插件。安装完成会自动生成相关配置。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">npm install hexo-generator-feed --save</span><br></pre></td></tr></table></figure>
+
+<p>生成的rss对应的文件public/atom.xml</p>
+<h3 id="创建文章"><a href="#创建文章" class="headerlink" title="创建文章"></a>创建文章</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hexo new &lt;文章名&gt;</span><br></pre></td></tr></table></figure>
+<p>新建一篇文章，使用markdown的格式。在一篇文章的开头，会有如下必要信息</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">---</span><br><span class="line">title: 利用Github从零开始搭建Hexo博客，可迁移</span><br><span class="line">date: 2020-03-06 22:07:06</span><br><span class="line">tags:</span><br><span class="line">    Github</span><br><span class="line">    hexo</span><br><span class="line"></span><br><span class="line">categories:</span><br><span class="line">    杂记</span><br><span class="line"></span><br><span class="line">toc: true</span><br><span class="line">---</span><br></pre></td></tr></table></figure>
+<p>其中title， date是必填的，tags就是标签，可选， categories：分类，也是可选。<br>toc：这个是主题maupassant下对应的，true为显示文章目录，默认不显示</p>
+<h3 id="创建标签页-tags"><a href="#创建标签页-tags" class="headerlink" title="创建标签页 tags"></a>创建标签页 tags</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hexo new page tags</span><br></pre></td></tr></table></figure>
+
+<p>也会生成类似文章的md文件，可以在头部自行添加。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">title: tags</span><br><span class="line">date: 2020-03-06 22:07:06</span><br><span class="line">type: tags</span><br><span class="line">comments: false</span><br></pre></td></tr></table></figure>
+<p>type: 指定为tags<br>comments：是否允许评论</p>
+<h3 id="分类页-categories"><a href="#分类页-categories" class="headerlink" title="分类页 categories"></a>分类页 categories</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hexo new page categories</span><br></pre></td></tr></table></figure>
+<p>指定type：categories</p>
+<h3 id="搜索页"><a href="#搜索页" class="headerlink" title="搜索页"></a>搜索页</h3><p>很多情况下需要搜索全站内容，所以有必要支持搜索。需要安装插件支持</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">npm install hexo-generator-searchdb --save</span><br></pre></td></tr></table></figure>
+
+<p>很多主题对应的搜索都不一样，但是搜索的插件都是必须的。这里需要修改上面提到的URL并指定root文件路径。</p>
+<h3 id="404页面"><a href="#404页面" class="headerlink" title="404页面"></a>404页面</h3><p>当页面出错的时候，就很有必要的添加一个404的错误页面。直接在根目录下创建一个404.md文件即可。也有会接入腾讯公益404广告的，自行google吧。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">---</span><br><span class="line">title: 404 Not Found</span><br><span class="line">date: 2020-03-06 11:06:55</span><br><span class="line">---</span><br><span class="line">&lt;center&gt;</span><br><span class="line">    对不起，您访问的页面不存在或已被删除</span><br><span class="line">&lt;&#x2F;center&gt;</span><br></pre></td></tr></table></figure>
+
+<h3 id="创建about"><a href="#创建about" class="headerlink" title="创建about"></a>创建about</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hexo new page about</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+
+</div><div class="tags"><a href="/tags/Github-hexo/">Github hexo</a></div><div class="post-nav"><a class="next" href="/2020/03/06/hello-world/">Hello World</a></div></div></div></div><div class="pure-u-1-4 hidden_mid_and_down"><div id="sidebar"><div class="widget"><div class="widget-title"><i class="fa fa-folder-o"> 分类</i></div><ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%9D%82%E8%AE%B0/">杂记</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-star-o"> 标签</i></div><div class="tagcloud"><a href="/tags/Github-hexo/" style="font-size: 15px;">Github hexo</a></div></div><div class="widget"><div class="widget-title"><i class="fa fa-file-o"> 最近文章</i></div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2020/03/06/Github-Hexo/">利用Github从零开始搭建Hexo博客，可迁移</a></li><li class="post-list-item"><a class="post-list-link" href="/2020/03/06/hello-world/">Hello World</a></li></ul></div></div></div><div class="pure-u-1 pure-u-md-3-4"><div id="footer">Copyright © 2020 <a href="/." rel="nofollow">不会飞的小白.</a> Powered by<a rel="nofollow" target="_blank" href="https://hexo.io"> Hexo.</a><a rel="nofollow" target="_blank" href="https://github.com/tufu9441/maupassant-hexo"> Theme</a> by<a rel="nofollow" target="_blank" href="https://github.com/pagecho"> Cho.</a></div></div></div><a class="show" id="rocket" href="#top"></a><script type="text/javascript" src="/js/totop.js?v=0.0.0" async></script><script type="text/javascript" src="//lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js" async></script><script type="text/javascript" src="/js/fancybox.js?v=0.0.0" async></script><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css"><script type="text/javascript" src="/js/codeblock-resizer.js?v=0.0.0"></script><script type="text/javascript" src="/js/smartresize.js?v=0.0.0"></script></div></body></html>
