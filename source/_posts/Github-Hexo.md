@@ -61,7 +61,7 @@ toc: true
     language: zh-CN
     timezone: ''
     ```
-    > <b>Site里头的东西，根据自身想法看着写就行。有一个需要注意的是language，它的值是根据对应的Theme中的语言相对应的。</b>
+    <b>Site里头的东西，根据自身想法看着写就行。有一个需要注意的是language，它的值是根据对应的Theme中的语言相对应的。</b>
 
     ```
     # URL
@@ -70,7 +70,7 @@ toc: true
     root: /
     ```
 
-    > <b>这里也需要注意。如果添加了搜索功能或者没有按照{name}.github.io这种命名方式创建的，这里的是必须要填写的。URL：为Github Page生成后对应的地址。root：为哪一级为根目录。</b>
+    <b>这里也需要注意。如果添加了搜索功能或者没有按照{name}.github.io这种命名方式创建的，这里的是必须要填写的。URL：为Github Page生成后对应的地址。root：为哪一级为根目录。</b>
     
     ```
     # Extensions
@@ -87,7 +87,7 @@ toc: true
       branch: master
     
     ```
-    > <b>这里是对应的仓库地址，type一定是 git类型，分支可以选择，我这里是master。</b>
+    <b>这里是对应的仓库地址，type一定是 git类型，分支可以选择，我这里是master。</b>
     
 9. 上面的配置完成之后，再执行<b>步奏5</b>，本地预览没问题后，可以直接走发布。而发布也就是将生成的public文件中的内容push到deploy对应的仓库的分支中。
     
@@ -216,5 +216,7 @@ hexo new page about
 
 
 
-
+## 总结
+感谢大佬们做的总结，不一一列举了，这里是用了【屠夫9441】的主题，再次感谢。
+> [大道至简——Hexo简洁主题推荐](https://www.haomwei.com/technology/maupassant-hexo.html)
 
