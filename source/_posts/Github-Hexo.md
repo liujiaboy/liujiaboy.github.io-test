@@ -119,7 +119,10 @@ toc: true
 3. 在该文件夹下，执行
     
     ```
-    npm install hexo
+    npm install hexo --save
+    ```
+    这一步是必须执行的，创建hexo环境，如果在本电脑的环境下已经执行过下面两个命令，就不用重复执行了。
+    ```
     npm install
     npm install hexo-deployer-git
     ```
