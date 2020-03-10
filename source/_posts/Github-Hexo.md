@@ -2,14 +2,11 @@
 title: 利用Github从零开始搭建Hexo博客，可迁移
 date: 2020-03-06 22:07:06
 tags:
-    Github
-    hexo
+    - Github
+    - hexo
 
 categories:
     杂记
-
-toc: true
-
 ---
 
 ## 准备
@@ -33,18 +30,14 @@ toc: true
     `hexo g`：generate，编译生成HTML代码，放在根目录下的public下。
     `hexo s`：serve，提供serve命令把博客在本地运行起来，然后点击给出的链接就可以正常的使用了，如果链接打不开，可能是端口被占用，可以使用`hexo s -p 端口号`来指定端口号。
 
-6. 我这里是用了一个相对比较简洁的主题：[maupassant](https://github.com/tufu9441/maupassant-hexo)，以此为例，大家喜欢什么主题自己配置就好。
+6. 我这里是用了一个比较主流的主题[next](https://github.com/theme-next/hexo-theme-next)，以此为例，大家喜欢什么主题自己配置就好。
     
     ```
-    git clone https://github.com/tufu9441/maupassant-hexo.git themes/maupassant
-    
-    npm install hexo-renderer-pug --save
-    
-    npm install hexo-renderer-sass --save
+    git clone https://github.com/theme-next/hexo-theme-next themes/next
     
     ```
 
-    依次执行命令进行配置就好了。随后在根目录下的`_config.yml`文件里配置： `theme：maupassant`。
+    依次执行命令进行配置就好了。随后在根目录下的`_config.yml`文件里配置： `next`。
     
 
 7. 删除主题下的git。这里有一点要注意的，在remote远程仓库之前，要把<b>themes文件夹</b>拉下来的主题，删除对应的<b>.git</b>文件删除掉。因为外部已经有了git，内部文件夹也有git时会出现问题。
@@ -76,7 +69,7 @@ toc: true
     # Extensions
     ## Plugins: https://hexo.io/plugins/
     ## Themes: https://hexo.io/themes/
-    theme: maupassant
+    theme: next
     #主题
     
     # Deployment
@@ -135,6 +128,24 @@ toc: true
 
 ## 相关配置
 
+### NexT主题添加theme-next-canvas-nest几何动效
+
+``` obj-c
+cd themes/next
+git clone https://github.com/theme-next/theme-next-canvas-nest source/lib/canvas-nest
+```
+完成上诉操作之后，再next配置文件_config.yml中配置开启canvas_nest，如果没有相关配置，直接复制代码粘贴进去就行。
+
+```
+canvas_nest:
+  enable: true
+  onmobile: true # display on mobile or not
+  color: '0,0,255' # RGB values, use ',' to separate
+  opacity: 0.5 # the opacity of line: 0~1
+  zIndex: -1 # z-index property of the background
+  count: 99 # the number of lines
+```
+
 ### 订阅 rss 
 
 博客一般都需要rss订阅，如果要开启，需要安装一个插件。安装完成会自动生成相关配置。
@@ -156,17 +167,14 @@ hexo new <文章名>
 title: 利用Github从零开始搭建Hexo博客，可迁移
 date: 2020-03-06 22:07:06
 tags:
-    Github
-    hexo
+    - Github
+    - hexo
 
 categories:
-    杂记
-
-toc: true
+    - 杂记
 ---
 ```
-其中title， date是必填的，tags就是标签，可选， categories：分类，也是可选。
-toc：这个是主题maupassant下对应的，true为显示文章目录，默认不显示
+其中title， date是必填的，tags就是标签，可选， categories：分类，也是可选。在next主题下，默认会生成目录。
 
 ### 创建标签页 tags
 ```
@@ -190,6 +198,8 @@ hexo new page categories
 ```
 指定type：categories
 
+hexo默认会创建`archives`类型的文件，不会默认创建tags和categories，但是创建完成这两个之后，只需要指定type类型即可，不用在文件中添加其他数据。
+
 ### 搜索页
 很多情况下需要搜索全站内容，所以有必要支持搜索。需要安装插件支持
 
@@ -201,6 +211,8 @@ npm install hexo-generator-searchdb --save
 
 ### 404页面
 当页面出错的时候，就很有必要的添加一个404的错误页面。直接在根目录下创建一个404.md文件即可。也有会接入腾讯公益404广告的，自行google吧。
+
+这个只针对绑定域名的有效，GitHub默认分配的是没有效果的。
 
 ```
 ---
@@ -221,6 +233,7 @@ hexo new page about
 
 
 ## 总结
-感谢大佬们做的总结，不一一列举了，这里是用了【屠夫9441】的主题，再次感谢。
-> [大道至简——Hexo简洁主题推荐](https://www.haomwei.com/technology/maupassant-hexo.html)
+感谢大佬们做的总结，不一一列举了。感谢
+[next: Github](https://github.com/theme-next/hexo-theme-next)
+
 
