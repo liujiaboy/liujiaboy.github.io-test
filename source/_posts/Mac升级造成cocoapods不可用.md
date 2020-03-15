@@ -2,7 +2,7 @@
 title: Mac升级造成cocoapods不可用
 date: 2020-03-10 17:00:52
 tags:
-    - cocoapods
+    - Cocoapods
 categories:
     - 杂记
 ---
