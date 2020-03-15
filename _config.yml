@@ -101,3 +101,7 @@ deploy:
   type: git
   repo: https://github.com/liujiaboy/liujiaboy.github.io.git
   branch: master
+
+
+sitemap:
+    path: sitemap.xml
