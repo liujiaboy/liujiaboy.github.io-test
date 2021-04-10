@@ -5,8 +5,8 @@
 # Site
 title: 不会飞的小白
 subtitle: 'Stay Hungry, Stay Foolish'
-description: ''
-keywords: iOS, Swift, GitHub
+description: '一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。'
+keywords: iOS, Swift, GitHub, CocoaPods
 author: 不会飞的小白
 language: zh-CN
 timezone: ''
@@ -93,7 +93,7 @@ ignore:
 # Extensions
 ## Plugins: https://hexo.io/plugins/
 ## Themes: https://hexo.io/themes/
-theme: maupassant
+theme: next #maupassant
 
 # Deployment
 ## Docs: https://hexo.io/docs/deployment.html
@@ -101,3 +101,9 @@ deploy:
   type: git
   repo: https://github.com/liujiaboy/liujiaboy.github.io.git
   branch: master
+
+
+sitemap:
+  path: sitemap.xml
+baidusitemap:
+  path: baidusitemap.xml
