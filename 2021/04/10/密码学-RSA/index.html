@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="3WOMyh0YrdEECGDv2GOACbgBEtVz_dJbyA_2G-pjr28">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liujiaboy.github.io","root":"/","scheme":"Pisces","version":"7.7.2","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="1. 密码学1.1 密码学概述密码学是指研究信息加密，破解密码的技术科学。密码学的起源可追溯到2000年前。而当今的密码学是以数学为基础的。 1.2 发展 在1976年以前，所有的加密方法都是同一种模式：加密、解密使用同一种算法。在交互数据的时候，彼此通信的双方就必须将规则告诉对方，否则没法解密。那么加密和解密的规则（简称密钥），它保护就显得尤其重要。传递密钥就成为了最大的隐患。这种加密方式被成为">
+<meta property="og:type" content="article">
+<meta property="og:title" content="密码学_RSA">
+<meta property="og:url" content="http://liujiaboy.github.io/2021/04/10/%E5%AF%86%E7%A0%81%E5%AD%A6-RSA/index.html">
+<meta property="og:site_name" content="不会飞的小白">
+<meta property="og:description" content="1. 密码学1.1 密码学概述密码学是指研究信息加密，破解密码的技术科学。密码学的起源可追溯到2000年前。而当今的密码学是以数学为基础的。 1.2 发展 在1976年以前，所有的加密方法都是同一种模式：加密、解密使用同一种算法。在交互数据的时候，彼此通信的双方就必须将规则告诉对方，否则没法解密。那么加密和解密的规则（简称密钥），它保护就显得尤其重要。传递密钥就成为了最大的隐患。这种加密方式被成为">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-04-10T07:25:44.000Z">
+<meta property="article:modified_time" content="2021-04-10T14:46:48.357Z">
+<meta property="article:author" content="不会飞的小白">
+<meta property="article:tag" content="RSA">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://liujiaboy.github.io/2021/04/10/%E5%AF%86%E7%A0%81%E5%AD%A6-RSA/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true
+  };
+</script>
+
+  <title>密码学_RSA | 不会飞的小白</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="不会飞的小白" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">不会飞的小白</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">Stay Hungry, Stay Foolish</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/liujiaboy" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/04/10/%E5%AF%86%E7%A0%81%E5%AD%A6-RSA/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="不会飞的小白">
+      <meta itemprop="description" content="一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="不会飞的小白">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          密码学_RSA
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-04-10 15:25:44 / 修改时间：22:46:48" itemprop="dateCreated datePublished" datetime="2021-04-10T15:25:44+08:00">2021-04-10</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E9%80%86%E5%90%91/" itemprop="url" rel="index"><span itemprop="name">逆向</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="1-密码学"><a href="#1-密码学" class="headerlink" title="1. 密码学"></a>1. 密码学</h1><h2 id="1-1-密码学概述"><a href="#1-1-密码学概述" class="headerlink" title="1.1 密码学概述"></a>1.1 密码学概述</h2><p>密码学是指研究信息加密，破解密码的技术科学。密码学的起源可追溯到2000年前。而当今的密码学是以数学为基础的。</p>
+<h2 id="1-2-发展"><a href="#1-2-发展" class="headerlink" title="1.2 发展"></a>1.2 发展</h2><ol>
+<li>在1976年以前，所有的加密方法都是同一种模式：加密、解密使用同一种算法。在交互数据的时候，彼此通信的双方就必须将规则告诉对方，否则没法解密。那么加密和解密的规则（简称密钥），它保护就显得尤其重要。传递密钥就成为了最大的隐患。这种加密方式被成为对称加密算法（symmetric encryption algorithm）</li>
+<li>1976年，两位美国计算机学家 迪菲（W.Diffie）、赫尔曼（ M.Hellman ） 提出了一种崭新构思，可以在不直接传递密钥的情况下，完成密钥交换。这被称为“<B>迪菲赫尔曼密钥交换</B>”算法。开创了密码学研究的新方向。</li>
+<li>1977年三位麻省理工学院的数学家 <B>罗纳德·李维斯特（Ron Rivest）、阿迪·萨莫尔（Adi Shamir）和伦纳德·阿德曼（Leonard Adleman）</B>一起设计了一种算法，可以实现<B>非对称加密</B>。这个算法用他们三个人的名字命名，叫做<B>RSA算法</B>。</li>
+</ol>
+<h1 id="2-RSA"><a href="#2-RSA" class="headerlink" title="2. RSA"></a>2. RSA</h1><p>RSA加密方式比较特殊，需要两个密钥：公开密钥简称公钥（publickey）和私有密钥简称私钥（privatekey）。公钥加密，私钥解密；私钥加密，公钥解密。这个加密算法就是伟大的RSA。</p>
+<h2 id="2-1-欧拉函数"><a href="#2-1-欧拉函数" class="headerlink" title="2.1 欧拉函数"></a>2.1 欧拉函数</h2><p>首先考虑什么是离散对数：在整数中，离散对数（英语：Discrete logarithm）是一种基于同余运算和<a href="https://baike.baidu.com/item/%E5%8E%9F%E6%A0%B9" target="_blank" rel="noopener">原根</a>的一种对数运算。</p>
+<p>互质关系：如果两个正整数，除了1以外，没有其他公因数，我们就称这两个数是互质关系（coprime）。</p>
+<p>有一个正整数n，请问在小于等于n的正整数之中，有多少个与n构成互质关系？<br>计算这个值的方式就是<b>欧拉函数</b>。用φ(n)来表示。φ -&gt; phi</p>
+<p>例如：</p>
+<blockquote>
+<p>计算8的欧拉函数，和8互质的数有1、3、5、7<br>φ(8) = 4</p>
+<p>例如计算7的欧拉函数，和7互质的数有1、2、3、4、5、6<br>φ(7) = 6</p>
+<p>例如计算56的欧拉函数<br>φ(56) = φ(8) * φ(7) = 4 * 6 = 24</p>
+</blockquote>
+<h3 id="2-2-1-欧拉函数的特性："><a href="#2-2-1-欧拉函数的特性：" class="headerlink" title="2.2.1 欧拉函数的特性："></a>2.2.1 欧拉函数的特性：</h3><ol>
+<li>当n是质数的时候，φ(n)=n-1。</li>
+<li>如果n可以分解成两个互质的整数之积，如n=A<em>B则：φ(A*B)=φ(A)</em> φ(B)</li>
+</ol>
+<p>根据以上两点得到：<br>如果N是两个质数P1 和 P2的乘积则φ(N)=φ(P1)* φ(P2)=(P1-1)*(P2-1)</p>
+<h2 id="2-2-欧拉定理"><a href="#2-2-欧拉定理" class="headerlink" title="2.2 欧拉定理"></a>2.2 欧拉定理</h2><p>如果两个正整数m和n互质，那么m的φ(n)次方减去1，可以被n整除。</p>
+<p>m^φ(n) % n = 1</p>
+<p>也就是说，m的φ(n)次方减去1，能被n整出。</p>
+<p>例如：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; m &#x3D; 3， n &#x3D; 11, φ(n) &#x3D; 10</span><br><span class="line">&#x2F;&#x2F; 再Python3的环境下，快速输出结果，如下</span><br><span class="line"></span><br><span class="line">&gt;&gt;&gt; 3**10%11</span><br><span class="line">1</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-2-1-费马小定理"><a href="#2-2-1-费马小定理" class="headerlink" title="2.2.1 费马小定理"></a>2.2.1 费马小定理</h3><p>欧拉定理的特殊情况：如果两个正整数m和n互质，而且n为质数！那么φ(n)结果就是n-1。</p>
+<p>m^(n-1) % n = 1</p>
+<p>这就是一开始所说的那种情况，如果n为质数，则φ(n)= n-1</p>
+<h2 id="2-3-模反元素"><a href="#2-3-模反元素" class="headerlink" title="2.3 模反元素"></a>2.3 模反元素</h2><p>如果两个正整数e和x互质，那么一定可以找到整数d，使得 ed-1 被x整除。那么d就是e对于x的“模反元素”。<br>e*d % x = 1</p>
+<h2 id="2-4-公式推导过程："><a href="#2-4-公式推导过程：" class="headerlink" title="2.4 公式推导过程："></a>2.4 公式推导过程：</h2><ol>
+<li><p>1^k = 1, 1的k次方等于1</p>
+</li>
+<li><p>1 * m = m</p>
+</li>
+<li><p>根据欧拉定理：m^φ(n) % n = 1，公式两边分别执行k次方。</p>
+</li>
+<li><p>(m^φ(n) % n)^k = 1^k 公式简化后：</p>
+</li>
+<li><p>m^k*φ(n) % n = 1，等式两边分别乘以m</p>
+</li>
+<li><p>(m^k*φ(n) % n) * m = 1 * m 简化后：</p>
+</li>
+<li><p>m^k*φ(n)+1 % n = m</p>
+</li>
+<li><p>根据模反元素的公式：e<em>d % x = 1，则 e</em>d = k*x + 1</p>
+</li>
+</ol>
+<p>到这里，有没有发现什么？看推导的第7步和第8步的公式，k<em>φ(n)+1 和 k</em>x+1是不是很相似。则 e * d = k*φ(n)+1</p>
+<p>那最后是不是可以得出：m^ed % n = m</p>
+<p>这就是大名鼎鼎的<b>迪菲赫尔曼密钥交换</b>。<br>我们假设 m = 3，n = 17，<br>服务器生成随机数 e = 15，客户端生成随机数 d = 13</p>
+<p>服务器 m^e % n，结果是 3^15 % 17 = 6， 把明文6传给客户端。<br>客户端 m^d % n，结果是 3^13 % 17 = 12， 把明文12传给服务器。</p>
+<p>两端拿到的数据分别进行解密：<br>客户端 6^13 % 17 = 10<br>服务器 12^15 % 17 = 10</p>
+<p><b>迪菲赫尔曼密钥交换</b>:<br>3^15<em>12 % n = 3^13</em>15 % n<br>m^e<em>d % n = 10 = m^d</em>e % n</p>
+<p>从这个时候开始，开创了密码学研究的新方向，也为RSA加密打下了基础。RSA对上面的公式进行了拆分：</p>
+<p>m^e % n = c<br>c^d % n = m</p>
+<p>这就是RSA诞生的原理。其中<br>m^e % n = c 进行加密<br>c^d % n = m 进行解密</p>
+<p>n、e是公钥，n、d是私钥，m是明文，c是密文。</p>
+<p>验证： m = 4， n = 15， φ(n) = 8， e = 3，<br>求出d（d是e对于φ(n)的“模反元素”） d = 11，19</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; python3环境</span><br><span class="line">&gt;&gt;&gt; 4**33%15</span><br><span class="line">4</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 加入m &#x3D; 5</span><br><span class="line">&gt;&gt;&gt; 5**33%15</span><br><span class="line">5</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 加入m &#x3D; 15</span><br><span class="line">&gt;&gt;&gt; 15**33%15</span><br><span class="line">0</span><br></pre></td></tr></table></figure>
+
+<p>到此，就看到了整个的RAS的基本过程。</p>
+<h1 id="3-RSA总结"><a href="#3-RSA总结" class="headerlink" title="3. RSA总结"></a>3. RSA总结</h1><h2 id="3-1-说明"><a href="#3-1-说明" class="headerlink" title="3.1 说明"></a>3.1 说明</h2><ol>
+<li>n会非常大，长度一般为1024个二进制位。（目前人类已经分解的最大整数，232个十进制位，768个二进制位）</li>
+<li>由于需要求出φ(n)，所以根据欧函数特点，最简单的方式n 由两个质数相乘得到: 质数：p1、p2，Φ(n) = (p1 -1) * (p2 - 1)</li>
+<li>最终由φ(n)得到e 和 d。总共生成6个数字：p1、p2、n、φ(n)、e、d</li>
+</ol>
+<h2 id="3-2-关于RSA的安全："><a href="#3-2-关于RSA的安全：" class="headerlink" title="3.2 关于RSA的安全："></a>3.2 关于RSA的安全：</h2><p>除了公钥用到了n和e 其余的4个数字是不公开的。目前破解RSA得到d的方式如下：</p>
+<ol>
+<li>要想求出私钥 d。由于e<em>d = φ(n)</em>k + 1。要知道e和φ(n);</li>
+<li>e是知道的，但是要得到 φ(n)，必须知道p1 和 p2。</li>
+<li>由于 n=p1*p2。只有将n因数分解才能算出。</li>
+</ol>
+<h2 id="3-3-RSA特点"><a href="#3-3-RSA特点" class="headerlink" title="3.3 RSA特点"></a>3.3 RSA特点</h2><ol>
+<li>相对来说比较安全（非对称加密）</li>
+<li>效率低 </li>
+<li>加密小数据，一般加密核心数据</li>
+</ol>
+<h1 id="4-终端演示"><a href="#4-终端演示" class="headerlink" title="4. 终端演示"></a>4. 终端演示</h1><p>由于Mac系统内置OpenSSL(开源加密库)，所以我们可以直接在终端上使用命令来玩RSA。OpenSSL中RSA算法常用指令主要有三个：</p>
+<table>
+<thead>
+<tr>
+<th align="left">命令</th>
+<th align="left">含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">genrsa</td>
+<td align="left">生成并输入一个RSA密钥</td>
+</tr>
+<tr>
+<td align="left">rsatul</td>
+<td align="left">使用RSA密钥进行加密、解密、签名和验证等运算</td>
+</tr>
+<tr>
+<td align="left">rsa</td>
+<td align="left">处理RSA密钥的格式转化等问题</td>
+</tr>
+</tbody></table>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 使用命令行演示</span><br><span class="line">&#x2F;&#x2F; 1. 生成RSA密钥，密钥长度为1024bit</span><br><span class="line">&gt; openssl genrsa -out private.pem 1024</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 2. 从私钥中提取公钥</span><br><span class="line">&gt; openssl rsa -in private.pem -pubout -out public.pem</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 3. 将私钥转换为明文信息</span><br><span class="line">&gt; openssl rsa -in private.pem -text -out private.txt</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 4. 通过公钥加密 首先创建一个message.txt文件，并输入内容</span><br><span class="line">&gt; vi message.txt </span><br><span class="line">&gt; openssl rsautl -encrypt -in message.txt -inkey public.pem -pubin -out enc.txt</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 5. 通过私钥解密</span><br><span class="line">&gt; openssl rsautl -decrypt -in enc.txt -inkey private.pem -out dec.txt</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 6. 通过私钥加密数据</span><br><span class="line">&gt; openssl rsautl -sign -in message.txt -inkey private.pem -out penc.txt</span><br><span class="line">&#x2F;&#x2F; 7. 公钥解密数据</span><br><span class="line">&gt; openssl rsautl -verify -in penc.txt -inkey public.pem -pubin -out pdec.txt</span><br></pre></td></tr></table></figure>
+
+<h1 id="5-代码演示"><a href="#5-代码演示" class="headerlink" title="5. 代码演示"></a>5. 代码演示</h1><p>由于Xcode是没有办法直接使用pem文件的，所以需要转化，首先需要生成请求的cer文件</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">&gt; openssl req -new -key private.pem -out rsacert.csr</span><br><span class="line">-----</span><br><span class="line">&gt; Country Name (2 letter code) []:CN</span><br><span class="line">&gt; State or Province Name (full name) []:Beijing</span><br><span class="line">&gt; Locality Name (eg, city) []:Chaoyang</span><br><span class="line">&gt; Organization Name (eg, company) []:Wangjing</span><br><span class="line">&gt; Organizational Unit Name (eg, section) []:alan.com</span><br><span class="line">&gt; Common Name (eg, fully qualified host name) []:alan.com</span><br><span class="line">&gt; Email Address []:alan@163.com</span><br><span class="line"></span><br><span class="line">&gt; Please enter the following &#39;extra&#39; attributes</span><br><span class="line">&gt; to be sent with your certificate request</span><br><span class="line">&#x2F;&#x2F; 这里不使用密码，其他根据要求自己填写。</span><br><span class="line">&gt; A challenge password []:</span><br></pre></td></tr></table></figure>
+
+<p>拿到csr文件之后，需要去请求签名文件，一般用于服务器，下发证书，比如https</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&gt; openssl x509 -req -days 3650 -in rsacert.csr -signkey private.pem -out rsacert.crt</span><br></pre></td></tr></table></figure>
+
+<p>然后我们通过crt证书生成Xcode可用的p12证书。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&gt; openssl pkcs12 -export -out p.p12 -inkey private.pem -in rsacert.crt</span><br><span class="line">&#x2F;&#x2F; 注意这里需要输入密码，123456</span><br></pre></td></tr></table></figure>
+
+<p>在iOS系统钟，ctr文件是无法直接使用的，所以还需要把ctr文件转化为der文件。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&gt; openssl x509 -outform der -in rsacert.crt -out rsacert.der</span><br></pre></td></tr></table></figure>
+
+<p>生成的rsacert.der和p.p12文件就相当于我们要使用的公钥和私钥。代码就先不放了哈~</p>
+<p>感谢~</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/RSA/" rel="tag"># RSA</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/03/15/Universal-Link/" rel="prev" title="Universal Link">
+      <i class="fa fa-chevron-left"></i> Universal Link
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/04/10/ARM%E6%B1%87%E7%BC%96/" rel="next" title="ARM汇编">
+      ARM汇编 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#1-密码学"><span class="nav-number">1.</span> <span class="nav-text">1. 密码学</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-1-密码学概述"><span class="nav-number">1.1.</span> <span class="nav-text">1.1 密码学概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-2-发展"><span class="nav-number">1.2.</span> <span class="nav-text">1.2 发展</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#2-RSA"><span class="nav-number">2.</span> <span class="nav-text">2. RSA</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1-欧拉函数"><span class="nav-number">2.1.</span> <span class="nav-text">2.1 欧拉函数</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-1-欧拉函数的特性："><span class="nav-number">2.1.1.</span> <span class="nav-text">2.2.1 欧拉函数的特性：</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2-欧拉定理"><span class="nav-number">2.2.</span> <span class="nav-text">2.2 欧拉定理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-1-费马小定理"><span class="nav-number">2.2.1.</span> <span class="nav-text">2.2.1 费马小定理</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3-模反元素"><span class="nav-number">2.3.</span> <span class="nav-text">2.3 模反元素</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-4-公式推导过程："><span class="nav-number">2.4.</span> <span class="nav-text">2.4 公式推导过程：</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#3-RSA总结"><span class="nav-number">3.</span> <span class="nav-text">3. RSA总结</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1-说明"><span class="nav-number">3.1.</span> <span class="nav-text">3.1 说明</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2-关于RSA的安全："><span class="nav-number">3.2.</span> <span class="nav-text">3.2 关于RSA的安全：</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3-RSA特点"><span class="nav-number">3.3.</span> <span class="nav-text">3.3 RSA特点</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#4-终端演示"><span class="nav-number">4.</span> <span class="nav-text">4. 终端演示</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#5-代码演示"><span class="nav-number">5.</span> <span class="nav-text">5. 代码演示</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="不会飞的小白"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">不会飞的小白</p>
+  <div class="site-description" itemprop="description">一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">7</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">9</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liujiaboy" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liujiaboy" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:alan129@163.com" title="E-Mail → mailto:alan129@163.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/u/1768698000" title="Weibo → https:&#x2F;&#x2F;weibo.com&#x2F;u&#x2F;1768698000" rel="noopener" target="_blank"><i class="fa fa-fw fa-weibo"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i></a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">不会飞的小白</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.2.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v7.7.2
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  
+  <script color='0,0,255' opacity='0.5' zIndex='-1' count='99' src="/lib/canvas-nest/canvas-nest.min.js"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
