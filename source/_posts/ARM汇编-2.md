@@ -229,7 +229,7 @@ int sumA(int a, int b) {
 }
 ```
 
-执行之后，ctrl进汇编：
+执行之后，按住control点击进汇编：
 
 ```
 首先我们来到viewDidLoad中，
