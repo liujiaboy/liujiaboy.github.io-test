@@ -46,7 +46,7 @@ xcrun -sdk iphonesimulator clang -arch arm64 -rewrite-objc main.m -o main-arm64.
 xcrun -sdk iphoneos clang -arch arm64 -rewrite-objc main.m -o main-arm64.cpp
     
     
-# 2. 什么是对象
+# 2. 类
 
 在main.m下创建一个Person类，然后通过上面的clang命令，找到我们需要的cpp文件。
 
@@ -62,7 +62,7 @@ xcrun -sdk iphoneos clang -arch arm64 -rewrite-objc main.m -o main-arm64.cpp
 
 转化之后，在cpp文件里，我们找到了如下的结构体。
 
-## 2.1 声明
+## 2.1 类的声明
 
 ```
 // @interface APerson : NSObject。声明
@@ -74,7 +74,7 @@ struct APerson_IMPL {
 
 我们发现，一个对象，它本身就是一个结构体，因为是继承自NSObject，他内部的第一个变量就是NSObject。而`NSObject_IVARS`就是我们经常说的isa指针。
 
-## 2.2 实现
+## 2.2 类的实现
 ```
 // @implementation APerson
 
@@ -458,14 +458,14 @@ objc_object::rootDealloc()
     if (isTaggedPointer()) return;  // fixme necessary?
 
     if (fastpath(isa.nonpointer                     &&
-                 !isa.weakly_referenced             &&
-                 !isa.has_assoc                     &&
+         !isa.weakly_referenced             &&
+         !isa.has_assoc                     &&
 #if ISA_HAS_CXX_DTOR_BIT
-                 !isa.has_cxx_dtor                  &&
+         !isa.has_cxx_dtor                  &&
 #else
-                 !isa.getClass(false)->hasCxxDtor() &&
+         !isa.getClass(false)->hasCxxDtor() &&
 #endif
-                 !isa.has_sidetable_rc))
+         !isa.has_sidetable_rc))
     {
         assert(!sidetable_present());
         free(this);
