@@ -372,7 +372,7 @@ int test(int a, int b, int c, int d, int e, int f, int g, int h, int i) {
 
 其实差别不大，经过系统优化之后，就只剩下`mov    w8, #0x2d`这一句代码了，0x2d = 45。就是这么简单直接。
 
-# 4.3 验证返回值
+## 4.3 验证返回值
 
 如果返回值超过8个字节，x0寄存器存不下的时候，会通过栈空间来返回。
 
@@ -454,15 +454,190 @@ struct NumA getStructA(int a, int b, int c, int d, int e, int f) {
 
 # 5. 函数的局部变量
 
-函数的局部变量是放在栈里面的。
+```
+int sumC(int a, int b) {
+    int c = 10;
+    return a+b+c;
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    
+    sumC(1,2);
+    }
+```
+
+运行，进入汇编模式
+
+```
+Demo`-[ViewController viewDidLoad]:
+    0x1026ae45c <+68>: mov    w0, #0x1
+    0x1026ae460 <+72>: mov    w1, #0x2
+->  0x1026ae464 <+76>: bl     0x1026ae3e8               ; sumC at ViewController.m:75
+    0x1026ae468 <+80>: ldp    x29, x30, [sp, #0x20]
+    0x1026ae46c <+84>: add    sp, sp, #0x30             ; =0x30 
+    0x1026ae470 <+88>: ret  
+```
+
+sumC(1, 2)：1和2分别放在了w0、w1寄存器中。然后执行bl，进入函数sumC
+
+```
+Demo`sumC:
+->  0x1026ae3e8 <+0>:  sub    sp, sp, #0x10             ; =0x10 
+    0x1026ae3ec <+4>:  str    w0, [sp, #0xc]
+    0x1026ae3f0 <+8>:  str    w1, [sp, #0x8]
+    0x1026ae3f4 <+12>: mov    w8, #0xa
+    0x1026ae3f8 <+16>: str    w8, [sp, #0x4]
+    0x1026ae3fc <+20>: ldr    w8, [sp, #0xc]
+    0x1026ae400 <+24>: ldr    w9, [sp, #0x8]
+    0x1026ae404 <+28>: add    w8, w8, w9
+    0x1026ae408 <+32>: ldr    w9, [sp, #0x4]
+    0x1026ae40c <+36>: add    w0, w8, w9
+    0x1026ae410 <+40>: add    sp, sp, #0x10             ; =0x10 
+    0x1026ae414 <+44>: ret    
+```
+
+1. 开辟16个字节的内存空间
+2. 把w0放在[sp+0xc]，w1放在[sp+0x8]
+3. w8赋值等于0xa，这里就是我们的局部变量c=10
+4. 然后把w8放在[sp+0x4]里头
+5. 一堆操作，ret
+
+看到了吧，函数的参数和局部变量都是放在栈里的。
+
+# 6. 函数嵌套
+
+```
+int funcSum(int a, int b, int c) {
+    int d = a + b + c;
+    printf("%d", d);
+    return d;
+}
+
+int totalSum(int a, int b) {
+    int c = 10;
+    int d = funcSum(a, b, c);
+    return d;
+}
 
 
-# 6. 总结
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    totalSum(1, 2);
+}
+```
 
-1. 栈：引出SP、FP寄存器。SP：保存栈顶地址，FP：保存栈底的地址
-2. stp/str 存值（16个字节/8个自己）
-3. ldp/ldr 取值（16个字节/8个自己）
-4. bl指令：lr(x30)寄存器，保存回家的路，bl跳转到对应的方法
-5. lr寄存器的值会通过保存在栈空间，来确保能够正确的返回。
+我们执行上面的含有局部变量的嵌套函数，看是怎么在汇编下执行的。
+
+
+```
+Demo`-[ViewController viewDidLoad]:
+    ...
+    ...
+    0x1002fa43c <+64>: bl     0x1002fa8d0               ; symbol stub for: objc_msgSendSuper2
+    // totalSum(1, 2)
+    0x1002fa440 <+68>: mov    w0, #0x1  // 将1存在w0寄存器里
+    0x1002fa444 <+72>: mov    w1, #0x2  // 2存放在w1寄存器里
+->  0x1002fa448 <+76>: bl     0x1002fa3bc               ; totalSum at ViewController.m:86
+    0x1002fa44c <+80>: ldp    x29, x30, [sp, #0x20]     ; x29、x30寄存器取值（lr寄存器获取回家的路）
+    0x1002fa450 <+84>: add    sp, sp, #0x30             ; =0x30 
+    0x1002fa454 <+88>: ret
+```
+
+这一坨汇编代码，已经看过无数次了，这里不细说了，直接走totalSum看看是怎么处理的。
+
+```
+Demo`totalSum:
+->  0x1002fa3bc <+0>:  sub    sp, sp, #0x20             ; =0x20 
+    0x1002fa3c0 <+4>:  stp    x29, x30, [sp, #0x10]
+    0x1002fa3c4 <+8>:  add    x29, sp, #0x10            ; =0x10 
+    0x1002fa3c8 <+12>: stur   w0, [x29, #-0x4]  ; 把totalSum的参数w0存放在栈底的位置
+    0x1002fa3cc <+16>: str    w1, [sp, #0x8]    ; 把w1的值放在栈顶+8个字节的位置
+    0x1002fa3d0 <+20>: mov    w8, #0xa          ; 获取局部变量10，放在w8寄存器
+    0x1002fa3d4 <+24>: str    w8, [sp, #0x4]    ; w8的值放在sp+4个字节的位置
+    0x1002fa3d8 <+28>: ldur   w0, [x29, #-0x4]  ; 重新对w0赋值，取值的位置就是之前w0存放的位置 w0=1
+    0x1002fa3dc <+32>: ldr    w1, [sp, #0x8]    ; w1取值w1=2
+    0x1002fa3e0 <+36>: ldr    w2, [sp, #0x4]    ; w2 = 10
+    0x1002fa3e4 <+40>: bl     0x1002fa35c       ; funcSum at ViewController.m:80 ;执行嵌套函数 funcSum。
+    0x1002fa3e8 <+44>: str    w0, [sp]          ; 把w0的值存在sp对应的位置。
+    0x1002fa3ec <+48>: ldr    w0, [sp]          ; 获取w0
+    0x1002fa3f0 <+52>: ldp    x29, x30, [sp, #0x10] ; 找到回家的路
+    0x1002fa3f4 <+56>: add    sp, sp, #0x20     ; =0x20 释放
+    0x1002fa3f8 <+60>: ret   
+```
+
+这里用到了`stur`和`ldur`。这两个的本质与`str`和`ldr`没有区别，只是带`u`的偏移的是一个负值。
+
+这里也有用到x29寄存器，还有印象吗？x29寄存器就是fp寄存器，指向的是栈底的位置。从栈的存储空间来看，栈底的地址比栈顶大，所以sp栈顶开辟空间都是减去一个值，而用栈底fp做关键值时，要想获取数据都必须在sp-fp之间拿值，所以基于fp的操作都是【减】。
+
+这里为什么把局部变量的值存在w8里面，就是因为w0-w7是存放函数参数的参数，之前说过，w8用来获取局部变量。
+
+funcSum函数的汇编就不说了，与之前的没什么区别。
+
+这里需要提一句的是，为啥要把参数先存放在内存里，然后再取出来，难道就不嫌麻烦吗？其主要目的就是为了保护参数，防止被改变。
+
+到最后w0/x0寄存器还是用来存放返回值。
+
+# 7. 补充内容
+
+1. 一个函数的参数，在函数执行完毕之后，是否能拿到这个参数的值？我们用4.2小结的代码来解释一下。
+   
+   ```
+    int test(int a, int b, int c, int d, int e, int f, int g, int h, int i) {
+        return a+b+c+d+e+f+g+h+i;
+    }
+    
+    - (void)viewDidLoad {
+        [super viewDidLoad];
+        test(1,2,3,4,5,6,7,8,9);
+    }
+    
+    ```
+    
+    这个test函数有9个参数，我们知道，x0-x7（w0-w7）这个8个寄存器是存放函数变量的，如果超过8个参数，则会存放在viewDidLoad函数开辟的栈空间内，也就是说1-8这8个参数是在test函数开辟的栈空间。这8个参数在test函数执行完毕之后，随着空间的释放就拿不到了，而9这个参数存放在`viewDidLoad`的栈空间，我们还可以拿到。
+    
+2. 在4.3小结，我们返回的是一个结构体，而不是一个指针，假如，我们添加一个函数，来调用这个返回的结构体，这个结构体能不能用。
+
+    ```
+    struct NumA getStructA(int a, int b, int c, int d, int e, int f) {
+        struct NumA num;
+        num.a = a;
+        num.b = b;
+        num.c = c;
+        num.d = d;
+        num.e = e;
+        num.f = f;
+        return num;
+    }
+    
+    struct NumA returnStruct() {
+        struct NumA num = getStructA(1,2,3,4,5,6);
+        return num;
+    }
+    
+    - (void)viewDidLoad {
+        [super viewDidLoad];
+        struct NumB num = returnStruct();
+        printf("a = %d\n", num.a);  // 这里是否能输出，还是会crash
+    }
+    
+    ```
+    
+    肯定是可以输出的，在`viewDidLoad`函数执行时，就已经创建了`struct NumB`所需要的空间了，返回的数据都存在于`viewDidLoad`的栈空间里，所以还是可以正常执行的。
+    
+
+# 总结
+
+1. 栈：引出SP、FP寄存器。SP：保存栈顶地址，FP：保存栈底的地址。（栈顶的地址比栈底的地址小，所以获取栈顶的值都是通过sub sp, sp #0x10,是减去一个空间，在存值的时候一般都是[sp+#0x08]）
+2. stp/str 存值（16个字节/8个字节）
+3. ldp/ldr 取值（16个字节/8个字节）
+4. stur/ldur 本质上与str/ldr没有区别，带【u】的操作的是一个负值。
+5. bl指令：通过lr(x30)寄存器，保存回家的路，bl跳转到对应的方法
+6. lr寄存器的值会通过保存在栈空间，来确保能够正确的返回。
+7. 函数的参数：存放在x0-x7寄存器，超过8个，则放在栈里。
+8. 返回值：使用x0寄存器保存，如果大于8个字节，会利用栈空间传递。
+9. 函数的局部变量放在栈里，嵌套函数的值也是放在栈里
+10. 会把变量的值放在内存里保护起来，用的时候在去取值
+
 
 

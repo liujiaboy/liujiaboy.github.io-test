@@ -11,9 +11,180 @@ categories:
 
 # 1. 对象、类对象、元类
 
-我们先从runtime的源码上分析这些都是什么东西。
 
-## 1.1 实例对象 id（Instance）
+
+
+## 1.1 isa指向、superClass指向
+
+
+```
+@interface Person : NSObject
+
+@end
+
+@interface Teacher : Person
+
+@end
+
+// 然后执行
+Person *p = [[Person alloc] init];
+Teacher *t = [[Teacher alloc] init];
+
+```
+
+我们根据上诉代码进行分析，isa指针的指向。
+
+> 注意，这里是用的是真机，而非Mac/模拟器
+
+## 1.2 实例对象的isa
+首先我们先看Person的实例p的isa指向情况
+
+```
+// 首先打印一下p的内存情况
+(lldb) po p
+<Person: 0x1d0016620>
+// 输出p指针的情况
+(lldb) x/4gx p
+0x1d0016620: 0x000001a10018d0c5 0x0000000000000000
+0x1d0016630: 0x00000001d0091b70 0x0000000000000000
+
+(lldb) p 0x000001a10018d0c5
+(long) $6 = 1791002988741
+
+```
+
+这里拿到p指针指向的内存情况，我们知道第一块内存区域存放的是isa指针，直接打印的话，发现就是一串数字，啥也看不出来。还记得上一章中object_getClass反向验证isa指向最后的"&"运算吗？`0x000001a10018d0c5`这个值就是isa->bits，我们用它与`ISA_MASK`进行&运算。因为这里是用的真机，所以`ISA_MASK = 0x0000000ffffffff8ULL`，如果是用Mac或者模拟器，根据芯片类型判断是否是ARM64架构还是x86，然后使用对应的值进行换算。
+
+```
+// p/x输出内存的16进制
+(lldb) p/x 0x000001a10018d0c5 & 0x0000000ffffffff8ULL
+(unsigned long long) $3 = 0x000000010018d0c0
+
+(lldb) po 0x000000010018d0c0
+Person
+```
+
+打印出来是Person。所以isa指向的就是Person类。那我们做一下验证，直接通过`object_getClass`方法来找一下Person这个类。
+
+```
+(lldb) p/x object_getClass(p)
+(Class _Nullable) $0 = 0x000000010018d0c0 Person
+```
+
+是不是发现，Person类的内存地址是一样的。如果再实例化一个p1，看p1->isa指向的和p->isa指向的是否是同一个Person类的内存地址。
+
+答案是肯定的，Person类在内存中只有一份，也就是说所有的类对象在内存中都只有一份。
+
+## 1.3 类对象的isa
+接下来，我们继续寻找Person类对象的isa指向情况。
+
+```
+(lldb) p 0x000001a10018d0c5
+(long) $6 = 1791002988741
+
+(lldb) x/4gx 0x000000010018d0c0
+0x10018d0c0: 0x000001a10018d099 0x00000001b5b12ea0
+0x10018d0d0: 0x00000001c00edd00 0x0000000400000007
+
+(lldb) p/x 0x000001a10018d099 & 0x0000000ffffffff8ULL
+(unsigned long long) $7 = 0x000000010018d098
+(lldb) po 0x000000010018d098
+Person
+```
+发现Person类对象的isa指向的还是Person，但是这个Person所在的内存地址与Person类对象不一样。
+
+这里就出现了元类的概念（Meta Class）。
+
+## 1.4 元类的isa
+
+我们继续寻找元类的isa
+
+```
+(lldb) x/4gx 0x000000010018d098
+0x10018d098: 0x000001a1b5b12ec9 0x00000001b5b12ec8
+0x10018d0a8: 0x00000001c00edc80 0x0000000100000007
+
+(lldb) p/x 0x000001a1b5b12ec9 & 0x0000000ffffffff8ULL
+(unsigned long long) $9 = 0x00000001b5b12ec8
+(lldb) po 0x00000001b5b12ec8
+NSObject
+```
+
+使用相同的方法找到元类的isa指向的是NSObject，这个NSObject是类对象吗？
+
+我们通过object_getClass([[NSObject alloc] init])来看看NSObject类对象的内存
+
+```
+(lldb) p/x object_getClass([[NSObject alloc] init])
+(Class _Nullable) $11 = 0x00000001b5b12ea0 NSObject
+
+(lldb) x/4gx 0x00000001b5b12ea0
+0x1b5b12ea0: 0x000001a1b5b12ec9 0x0000000000000000
+0x1b5b12eb0: 0x00000001d41fbb00 0x0000000a0000000f
+
+// 从这里开始，就已经跟上面的内存地址重复了
+(lldb) p/x 0x000001a1b5b12ec9 & 0x0000000ffffffff8ULL
+(unsigned long long) $12 = 0x00000001b5b12ec8
+(lldb) po 0x00000001b5b12ec8
+NSObject
+```
+
+到这里，是不是看明白了点啥？
+
+Person的元类的isa指向的是NSObjec的元类。
+
+### 1.5 使用相同的办法查看Teache实例的isa
+
+```
+(lldb) x/4gx t
+0x1d022dee0: 0x000001a102680fd5 0x0000000000000000
+0x1d022def0: 0x0000000000000000 0x0000000000000000
+(lldb) po 0x000001a102680fd5 & 0x0000000ffffffff8ULL
+Teacher
+
+(lldb) p/x 0x000001a102680fd5 & 0x0000000ffffffff8ULL
+(unsigned long long) $18 = 0x0000000102680fd0
+(lldb) po 0x0000000102680fd0
+Teacher
+
+(lldb) x/4gx 0x0000000102680fd0
+0x102680fd0: 0x000001a102680fa9 0x00000001026810c0
+0x102680fe0: 0x00000001c00e6700 0x0000000400000007
+(lldb) po 0x000001a102680fa9
+1791041736617
+
+(lldb) p/x 0x000001a102680fa9 & 0x0000000ffffffff8ULL
+(unsigned long long) $21 = 0x0000000102680fa8
+(lldb) po 0x0000000102680fa8
+Teacher
+
+(lldb) x/4gx 0x0000000102680fa8
+0x102680fa8: 0x000001a1b5b12ec9 0x0000000102681098
+0x102680fb8: 0x00000001c00e6a80 0x0000000300000007
+(lldb) p/x 0x000001a1b5b12ec9 & 0x0000000ffffffff8ULL
+(unsigned long long) $23 = 0x00000001b5b12ec8
+(lldb) po 0x00000001b5b12ec8
+NSObject
+```
+
+## 1.6 总结
+
+![](isa_metaclass.png)
+
+* 每个实例对象的isa指针指向与之对应的类对象(Class)。
+* 每个类对象(Class)都有一个isa指针指向一个唯一的元类(Meta Class)。
+* 每一个元类(Meta Class)的isa指针都指向最上层的元类(Meta Class)（图中的NSObject的Meta Class）。最上层的元类(Meta Class)的isa指针指向自己，形成一个回路。
+* 每一个元类(Meta Class)的Super Class指向它原本Class的Super Class的Meta Class。最上层的Meta Class的Super Class指向NSObject Class本身。
+* 最上层的NSObject Class的Super Class指向nil。
+* 只有Class才有继承关系，实例对象与实例对象不存在继承关系。
+* 每一个类对象(Class)在内存中都只有一份。
+
+
+# 2. 通过源码分析
+
+接下来我们从runtime的源码上分析这些都是什么东西。
+
+## 2.1 实例对象 id（Instance）
 
 ```
 /// A pointer to an instance of a class.
@@ -31,7 +202,7 @@ struct objc_object {
 ```
 这个时候我们知道Objective-C中的object在最后会被转换成C的结构体, 在这个struct中有 个 isa 指针,指向它的类别 Class。 
 
-## 1.2 类对象 Class
+## 2.2 类对象 Class
 
 ```
 /// An opaque type that represents an Objective-C class.
@@ -89,7 +260,15 @@ struct objc_class {
 
 继续回到上面的结构体，发现ISA变量被注释掉了，其实也没有影响的，因为`objc_class` 继承自 `objc_object`（内部有isa变量）。那我们的属性、方法是存放在哪了呢？
 
-通过查看源码，我们看到有这么一个属性`class_data_bits_t`，这个东西里可能存放着我们需要的东西，我们查看它的源码：
+通过查看源码，我们看到有这么一个属性`class_data_bits_t`，这个东西里可能存放着我们需要的东西。稍后我们做验证。
+
+## 2.3 元类 Meta Class
+OC中一切皆为对象
+Class在设计中本身也是一个对象,也有superclass。而这个Class对应的类我们叫“元类”（Meta Class）。也就是说Class中有一个isa指向的是Meta Class。
+
+## 2.4 验证属性的存在位置
+
+在2.2小结我们说了属性、方法、等可能存在于`class_data_bits_t`这个结构体内部，我们查看它的源码：
 
 ```
 struct class_data_bits_t {
@@ -207,11 +386,13 @@ private:
 
 我们做一下验证。
 
+### 2.4.1 llvm 验证属性存放的位置
+
 ```
-(lldb) po person
+(lldb) po p
 <Person: 0x10060e160>
 
-(lldb) x/4gx person
+(lldb) x/4gx p
 0x10060e160: 0x021d8001000081cd 0x0000000000000000
 0x10060e170: 0x0000000000000000 0x86c8f7c495bce30f
 
@@ -250,22 +431,7 @@ private:
 
 进一步的验证还有待去探索，先到这里，之后补充。
 
-## 1.3 元类 Meta Class
-OC中一切皆为对象
-Class在设计中本身也是一个对象,也有superclass。而这个Class对应的类我们叫“元类”（Meta Class）。也就是说Class中有一个isa指向的是Meta Class。
 
-
-## 1.4 isa指向、superClass指向
-
-![](isa_metaclass.png)
-
-* 每个实例对象的isa指针指向与之对应的类对象(Class)。
-* 每个类对象(Class)都有一个isa指针指向一个唯一的元类(Meta Class)。
-* 每一个元类(Meta Class)的isa指针都指向最上层的元类(Meta Class)（图中的NSObject的Meta Class）。最上层的元类(Meta Class)的isa指针指向自己，形成一个回路。
-* 每一个元类(Meta Class)的Super Class指向它原本Class的Super Class的Meta Class。最上层的Meta Class的Super Class指向NSObject Class本身。
-* 最上层的NSObject Class的Super Class指向nil。
-* 只有Class才有继承关系，实例对象与实例对象不存在继承关系。
-* 每一个类对象(Class)在内存中都只有一份。
 
 # 2. 属性和成员变量
 
@@ -281,3 +447,17 @@ main.m生成cpp文件查看类中两者的区别
 sel 和 imp
 sel：方法名
 imp：方法实现。函数指针地址
+
+
+
+# 总结
+
+* 实例对象、类对象、元类。一切皆为对象，主要因为objc_object这个结构体。
+* isa的走位图，superClass的指向
+* 属性、变量，实例方法、类方法的存放
+    * 属性、变量的区别，存放的位置
+    * 实例方法放在类对象的列表；类方法的存放在元类的方法列表
+* sel、imp的区别
+
+
+
