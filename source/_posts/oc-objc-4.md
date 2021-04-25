@@ -432,10 +432,56 @@ private:
 进一步的验证还有待去探索，先到这里，之后补充。
 
 
-
 # 2. 属性和成员变量
 
-main.m生成cpp文件查看类中两者的区别
+我们在
+```
+@interface Person : NSObject
+{
+    NSString *hobby;
+}
+
+@property (nonatomic, copy) NSString *name;
+
++ (void)sayHello;
+- (void)sayHi;
+
+@end
+```
+
+通过clang，将main.m生成cpp文件查看类中两者的区别。
+
+```
+typedef struct objc_object Person;
+
+struct Person_IMPL {
+	struct NSObject_IMPL NSObject_IVARS;
+	NSString *hobby;
+  // 声明的属性name
+	NSString *_name;
+};
+
+// @property (nonatomic, copy) NSString *name;
+// + (void)sayHello;
+// - (void)sayHi;
+
+/* @end */
+
+// @implementation Person
+static void _C_Person_sayHello(Class self, SEL _cmd) {
+}
+
+static void _I_Person_sayHi(Person * self, SEL _cmd) {
+}
+
+static NSString * _I_Person_name(Person * self, SEL _cmd) { return (*(NSString **)((char *)self + OBJC_IVAR_$_Person$_name)); }
+extern "C" __declspec(dllimport) void objc_setProperty (id, SEL, long, id, bool, bool);
+
+static void _I_Person_setName_(Person * self, SEL _cmd, NSString *name) { objc_setProperty (self, _cmd, __OFFSETOFIVAR__(struct Person, _name), (id)name, 0, 1); }
+// @end
+```
+
+我们发现，声明的属性name，被直接转化成了带有下划线的成员变量。同时在实现中，多了set、get方法。
 
 1. 属性： 在cpp文件中属性有下划线，并且自动生成set和get方法
 2. 成员变量：没有下划线，没有set、get方法
@@ -444,10 +490,60 @@ main.m生成cpp文件查看类中两者的区别
 
 
 # 3. 方法
+
+我们在类中声明的方法都在`method_list_t`中，发现这里并没有我们的类方法。
+
+```
+static struct /*_method_list_t*/ {
+	unsigned int entsize;  // sizeof(struct _objc_method)
+	unsigned int method_count;
+	struct _objc_method method_list[5];
+} _OBJC_$_INSTANCE_METHODS_Person __attribute__ ((used, section ("__DATA,__objc_const"))) = {
+	sizeof(_objc_method),
+	5,
+	{{(struct objc_selector *)"sayHi", "v16@0:8", (void *)_I_Person_sayHi},
+	{(struct objc_selector *)"name", "@16@0:8", (void *)_I_Person_name},
+	{(struct objc_selector *)"setName:", "v24@0:8@16", (void *)_I_Person_setName_},
+	{(struct objc_selector *)"name", "@16@0:8", (void *)_I_Person_name},
+	{(struct objc_selector *)"setName:", "v24@0:8@16", (void *)_I_Person_setName_}}
+};
+```
+因为类方法在元类里头。
+类方法的声明
+```
+static struct /*_method_list_t*/ {
+	unsigned int entsize;  // sizeof(struct _objc_method)
+	unsigned int method_count;
+	struct _objc_method method_list[1];
+} _OBJC_$_CLASS_METHODS_Person __attribute__ ((used, section ("__DATA,__objc_const"))) = {
+	sizeof(_objc_method),
+	1,
+	{{(struct objc_selector *)"sayHello", "v16@0:8", (void *)_C_Person_sayHello}}
+};
+```
+
+这里我们以name的get方法为例子，说明一下这都是什么意思：
+
+```
+- (NSString *)getName;
+{(struct objc_selector *)"name", "@16@0:8", (void *)_I_Person_name}
+```
+
+![](function_table.png)
+
+
+> @16@0:8
+* '@'：第一个@表示返回值，对象
+* '16'：16个字节
+* '@'：第二个@表示对象类型(id)
+* '0'：我们知道@表示对象，0表示从0开始，占8个字节
+* ':'：SEL，方法明
+* '8'：表示从8开始，占8个字节，满足一共16个字节
+ 
+
 sel 和 imp
 sel：方法名
 imp：方法实现。函数指针地址
-
 
 
 # 总结
