@@ -1,5 +1,5 @@
 ---
-title: ARM汇编-3 状态寄存器 if、switch
+title: ARM汇编-3 状态寄存器 if、loop、switch
 date: 2021-04-14 22:05:25
 tags:
     - ARM汇编
@@ -374,16 +374,16 @@ void switchFunc(int a) {
     int nsum = 0;
     switch (a) {
         case 1:
-            nsum += 1;
+            printf("1");
             break;
         case 2:
-            nsum += 10;
+            printf("2");
             break;
         case 3:
-            nsum += 20;
+            printf("3");
             break;
         default:
-            nsum += -1;
+            printf("default");
             break;
     }
 }
@@ -437,19 +437,19 @@ void switchFunc(int a) {
     int nsum = 0;
     switch (a) {
         case 1:
-            nsum += 1;
+            printf("1");
             break;
         case 2:
-            nsum += 10;
+            printf("2");
             break;
         case 3:
-            nsum += 20;
+            printf("3");
             break;
         case 4:
-            nsum += 30;
+            printf("4");
             break;
         default:
-            nsum += -1;
+            printf("default");
             break;
     }
 }
@@ -576,19 +576,19 @@ void switchFunc(int a) {
     int nsum = 0;
     switch (a) {
         case 1:
-            nsum += 1;
+            printf("1");
             break;
         case 200:
-            nsum += 10;
+            printf("2");
             break;
         case 30:
-            nsum += 20;
+            printf("3");
             break;
         case 4:
-            nsum += 30;
+            printf("4");
             break;
         default:
-            nsum += -1;
+            printf("default");
             break;
     }
 }
