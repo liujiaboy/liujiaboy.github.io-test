@@ -6,7 +6,7 @@ tags:
     - runtime
     - iOS
 categories:
-    - Objective-C
+    - OC原理
 ---
 
 # 1. 先看一个问题
@@ -290,3 +290,4 @@ callAlloc(Class cls, bool checkNil, bool allocWithZone=false)
 * new
 
 有什么不对的欢迎指正。
+
