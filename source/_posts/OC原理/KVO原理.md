@@ -254,7 +254,7 @@ return class_getSuperclass(object_getClass(self));
 
 代码就不贴了，哪都有~
 
-# 通过GUN解析
+# 通过GNU解析
 
 [gnu源码](http://www.gnustep.org/resources/downloads.php)
 
@@ -393,7 +393,7 @@ gnu源码可以清晰的看到整体的流程，只是读起来可能会稍微�
 }
 ```
 
-因为床的临时变量info，是通过NSMutableSet获取`member`来获取的，是怎么获取到的。
+因为创建的临时变量info，是通过NSMutableSet获取`member`来获取的，是怎么获取到的。
 
 > Each element of the set is checked for equality with object until a match is found or the end of the set is reached. Objects are considered equal if isEqual: returns YES.
 

@@ -195,7 +195,7 @@ n、e是公钥，n、d是私钥，m是明文，c是密文。
 ```
 
 # 5. 代码演示
-由于Xcode是没有办法直接使用pem文件的，所以需要转化，首先需要生成请求的cer文件
+由于Xcode是没有办法直接使用pem文件的，所以需要转化，首先需要生成请求的cer文件（可以理解为证书请求文件）
 
 ```
 > openssl req -new -key private.pem -out rsacert.csr
@@ -233,7 +233,9 @@ n、e是公钥，n、d是私钥，m是明文，c是密文。
 > openssl x509 -outform der -in rsacert.crt -out rsacert.der
 ```
 
-生成的rsacert.der和p.p12文件就相当于我们要使用的公钥和私钥。代码就先不放了哈~
+生成的rsacert.der和p.p12文件就相当于我们要使用的公钥和私钥。
+
+正常情况下，客户端不会同时存在公钥和私钥，因为这样做没有意义。客户端一般存放的是公钥，私钥在服务端。代码使用就不放了，这里有一套[Github Objective-c-RSA](https://github.com/ideawu/Objective-C-RSA)代码。
 
 感谢~
 
