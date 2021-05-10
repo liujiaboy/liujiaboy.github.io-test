@@ -254,6 +254,7 @@ return class_getSuperclass(object_getClass(self));
 
 代码就不贴了，哪都有~
 
+
 # 通过GNU解析
 
 [gnu源码](http://www.gnustep.org/resources/downloads.php)
