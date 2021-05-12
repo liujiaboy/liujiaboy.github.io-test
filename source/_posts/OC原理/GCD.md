@@ -298,10 +298,28 @@ dispatch_get_main_queue(void)
 	return DISPATCH_GLOBAL_OBJECT(dispatch_queue_main_t, _dispatch_main_q);
 }
 ```
-
 在`dispatch_get_main_queue`的解释中，我们发现：主队列依赖于主线程`dispatch_main()`和`runloop`，并且主线程是在`main()`函数之前自动创建的（dyld的流程）。
 
-这里有两个参数：
+先看看啥是`dispatch_queue_main_t`
+
+> A dispatch queue that is bound to the app's main thread and executes tasks serially on that thread.
+
+```
+typedef NSObject<OS_dispatch_queue_main> *dispatch_queue_main_t;
+```
+
+可以看出来`OS_dispatch_queue_main`是一个类。
+
+
+那我们找一找`DISPATCH_GLOBAL_OBJECT`这个的实现：
+
+```
+#define DISPATCH_GLOBAL_OBJECT(type, object) ((OS_OBJECT_BRIDGE type)&(object))
+```
+
+这是一个宏定义，内部使用的是一个type类型强转之后与object进行二进制的”&“运算。
+
+然后看看这两个参数：
 
 `dispatch_queue_main_t`：
 > The type of the default queue that is bound to the main thread
@@ -332,6 +350,14 @@ struct dispatch_queue_static_s _dispatch_main_q = {
 `dq_serialnum`：串行数是1
 
 
+知道了两个参数，我们直接使用”&“运算看是否能得到我们想要的主线程。
+
+```
+dispatch_queue_t mainQueue = (OS_OBJECT_BRIDGE dispatch_queue_main_t)&(_dispatch_main_q);
+```
+
+得到的这个mainQueue与上方的点结果是一直到。
+
 接下来我们得验证一下，`dispatch_get_main_queue`是在main函数之前执行的。在dyld的流程中，我们知道他会执行一个`libdispatch_init(void)`的操作。在它的内部源码中有如下内容：
 
 ```
@@ -339,11 +365,11 @@ void
 libdispatch_init(void)
 {
 // ...
-// line 7758
+// line 7921
 #if DISPATCH_USE_RESOLVERS // rdar://problem/8541707
 	_dispatch_main_q.do_targetq = _dispatch_get_default_queue(true);
 #endif
-  // 设置当前线程  
+  // 设置当前线程
 	_dispatch_queue_set_current(&_dispatch_main_q);
 	// 绑定线程
 	_dispatch_queue_set_bound_thread(&_dispatch_main_q);
@@ -365,7 +391,7 @@ dispatch_get_global_queue(intptr_t identifier, uintptr_t flags);
 ```
 
 这里有两个参数：
-第一个identifier：表示优先级
+第一个identifier：表示优先级，与QOS的优先级一一对应。
 
 ```
 DISPATCH_QUEUE_PRIORITY_HIGH        // 高
@@ -501,8 +527,29 @@ dispatch_queue_create(const char *label, dispatch_queue_attr_t attr)
 ```
 
 这里传了两个参数，第一个是标签，表示创建的队列，第二个标识串行还是并发。
-串行：DISPATCH_QUEUE_SERIAL 或者 NULL
-并发：DISPATCH_QUEUE_CONCURRENT
+
+## 串行：DISPATCH_QUEUE_SERIAL
+
+我们看一下源码：
+
+```
+#define DISPATCH_QUEUE_SERIAL NULL
+```
+
+所以，通常情况下，我们在创建串行队列时，也会使用`NULL`来替换。
+
+## 并发：DISPATCH_QUEUE_CONCURRENT
+
+我们看一下源码实现：
+
+```
+#define DISPATCH_QUEUE_CONCURRENT \
+		DISPATCH_GLOBAL_OBJECT(dispatch_queue_attr_t, \
+		_dispatch_queue_attr_concurrent)
+```
+
+这里有一个`DISPATCH_GLOBAL_OBJECT()`函数，在主队列中已经介绍过了（通过&运算）。
+
 
 `_dispatch_lane_create_with_target`这个函数中，我们发现很长很难懂，那我们就通过多年的编程经验，看它返回的时候一个什么东西，然后看这个是怎么创建的。下面的代码是经过删减的，有需要的自行查看源码。
 
@@ -584,6 +631,100 @@ _dispatch_queue_attr_to_info(dispatch_queue_attr_t dqa)
 
 ## 创建 vtable
 
+`vtable`会根据当前是串行还是并发进行创建，我们一步一步的追寻`vtable`是什么。
+
+
 ```
+#if OS_OBJECT_HAVE_OBJC2
 #define DISPATCH_VTABLE(name) DISPATCH_OBJC_CLASS(name)
+#define DISPATCH_OBJC_CLASS(name) (&DISPATCH_CLASS_SYMBOL(name))
+#define DISPATCH_CLASS_SYMBOL(name) OS_dispatch_##name##_class
+#elif
+...
+#end
+
 ```
+
+```
+if (dqai.dqai_concurrent) {
+	// OS_dispatch_queue_concurrent
+	vtable = DISPATCH_VTABLE(queue_concurrent);
+} else {
+	vtable = DISPATCH_VTABLE(queue_serial);
+}
+```
+
+通过源码发现，`vtable`就是一个类。最后生成的就是`OS_dispatch_##name##_class`。
+
+`##name##`就是创建`vtable`时的参数，就会生成对应的`OS_dispatch_queue_serial_class`和`OS_dispatch_queue_concurrent_class`。
+
+
+## label赋值
+	
+这个就是创建时传入的那个label标签的内容。
+
+## dq alloc分配内存空间
+
+这里执行了alloc操作，开始分配内存空间。
+
+```	
+dispatch_lane_t dq = _dispatch_object_alloc(vtable,
+			sizeof(struct dispatch_lane_s)); 
+			
+			
+void *
+_dispatch_object_alloc(const void *vtable, size_t size)
+{
+// 这个是在mac下执行
+#if OS_OBJECT_HAVE_OBJC1
+...
+#else
+	// 这里分配内存，isa指向
+	return _os_object_alloc_realized(vtable, size);
+#endif
+}
+```
+
+真正的alloc操作是在这里执行的。
+
+```
+inline _os_object_t
+_os_object_alloc_realized(const void *cls, size_t size)
+{
+	_os_object_t obj;
+	dispatch_assert(size >= sizeof(struct _os_object_s));
+	// 开辟空间
+	while (unlikely(!(obj = calloc(1u, size)))) {
+		_dispatch_temporary_resource_shortage();
+	}
+	// isa指向
+	obj->os_obj_isa = cls;
+	return obj;
+}
+```
+
+## dq init操作
+
+alloc之后，执行init操作。
+
+
+## 对dq进行赋值
+
+比如lable标签、overcommit，priority等赋值
+
+## 最后return
+
+```
+return _dispatch_trace_queue_create(dq)._dq;
+```
+
+最后return的是一个`._dq`。
+
+
+# 引用
+
+[libdispatch源文件](https://opensource.apple.com/tarballs/libdispatch/)
+这里是用的是libdispatch-1271.40.12.tar.gz文件。
+
+
+
