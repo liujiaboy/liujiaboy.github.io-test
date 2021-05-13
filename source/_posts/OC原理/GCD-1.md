@@ -1,5 +1,5 @@
 ---
-title: GCD
+title: GCD-1
 date: 2021-05-10 21:24:11
 tags:
     - Objective-C,
@@ -695,6 +695,7 @@ _os_object_alloc_realized(const void *cls, size_t size)
 	dispatch_assert(size >= sizeof(struct _os_object_s));
 	// 开辟空间
 	while (unlikely(!(obj = calloc(1u, size)))) {
+	// 执行的都是likely的操作，所以不会走这里，这里也没有意义，内部是sleep操作
 		_dispatch_temporary_resource_shortage();
 	}
 	// isa指向
@@ -707,10 +708,11 @@ _os_object_alloc_realized(const void *cls, size_t size)
 
 alloc之后，执行init操作。
 
+初始化的时候会判断当前要生成并发还是串行队列，并发的话，个数是`DISPATCH_QUEUE_WIDTH_MAX`，串行是1，就是开辟的最大任务数。
 
 ## 对dq进行赋值
 
-比如lable标签、overcommit，priority等赋值
+比如lable标签、overcommit，priority等赋值。同时绑定target。
 
 ## 最后return
 
@@ -718,8 +720,107 @@ alloc之后，执行init操作。
 return _dispatch_trace_queue_create(dq)._dq;
 ```
 
-最后return的是一个`._dq`。
+这里看源码都是最后返回的都是dq对应的数据。
 
+# dispatch_async 源码
+
+我们接下来看一下异步并发队列函数的源码。
+
+```
+dispatch_async(conque, ^{
+    NSLog(@"12334");
+});
+```
+
+```
+void
+dispatch_async(dispatch_queue_t queue, dispatch_block_t block);
+
+void
+dispatch_async(dispatch_queue_t dq, dispatch_block_t work)
+{
+	dispatch_continuation_t dc = _dispatch_continuation_alloc();
+	uintptr_t dc_flags = DC_FLAG_CONSUME;
+	dispatch_qos_t qos;
+
+	qos = _dispatch_continuation_init(dc, dq, work, 0, dc_flags);
+	_dispatch_continuation_async(dq, dc, qos, dc->dc_flags);
+}
+```
+
+`dispatch_async()`函数内部会执行`_dispatch_continuation_init`，这个是函数中的重点。看一下源码：
+
+```
+static inline dispatch_qos_t
+_dispatch_continuation_init(dispatch_continuation_t dc,
+		dispatch_queue_class_t dqu, dispatch_block_t work,
+		dispatch_block_flags_t flags, uintptr_t dc_flags)
+{
+// 1. work就是外部的block，这里ctxt是对block的一个copy操作
+	void *ctxt = _dispatch_Block_copy(work);
+
+	dc_flags |= DC_FLAG_BLOCK | DC_FLAG_ALLOCATED;
+	if (unlikely(_dispatch_block_has_private_data(work))) {
+    	// 执行的都是likely的操作
+    	// dc_flags赋值	
+		dc->dc_flags = dc_flags;
+		// block赋值到dc_ctxt中
+		dc->dc_ctxt = ctxt;
+		// will initialize all fields but requires dc_flags & dc_ctxt to be set
+		return _dispatch_continuation_init_slow(dc, dqu, flags);
+	}
+  // 所以会走这里，func可以理解为work的方法名。
+	dispatch_function_t func = _dispatch_Block_invoke(work);
+	if (dc_flags & DC_FLAG_CONSUME) {
+		func = _dispatch_call_block_and_release;
+	}
+	// 这里又是重点内容
+	return _dispatch_continuation_init_f(dc, dqu, ctxt, func, flags, dc_flags);
+}
+```
+
+我们进一步查看`_dispatch_continuation_init_f`源码：
+
+```
+static inline dispatch_qos_t
+_dispatch_continuation_init_f(dispatch_continuation_t dc,
+		dispatch_queue_class_t dqu, void *ctxt, dispatch_function_t f,
+		dispatch_block_flags_t flags, uintptr_t dc_flags)
+{
+  // 默认优先级0
+	pthread_priority_t pp = 0;
+	// 设置dc_flags
+	dc->dc_flags = dc_flags | DC_FLAG_ALLOCATED;
+	// 设置方法名
+	dc->dc_func = f;
+	// 方法实现，我们知道dispatch_async是没有参数的。
+	dc->dc_ctxt = ctxt;
+	// 设置优先级
+	if (!(flags & DISPATCH_BLOCK_HAS_PRIORITY)) {
+		pp = _dispatch_priority_propagate();
+	}
+	_dispatch_continuation_voucher_set(dc, flags);
+	// 对block调用的优先级处理
+	return _dispatch_continuation_priority_set(dc, dqu, pp, flags);
+}
+```
+这个也就是dispatch_async的实现。下一章会继续block是如何调用的。
+
+
+# 总结
+
+1. GCD的介绍
+2. 同步、异步函数的介绍
+3. 串行队列、并发队列
+4. 函数与队列的4种组合，以及面试题
+    1. 并发不会等待一个任务执行完成才执行。
+    2. 串行会等待一个任务执行完毕才执行。
+    3. 异步函数下，不管是串行队列还是并行队列，都不影响block块之外的内存执。因为block内部是在新开启的线程中执行的。
+    4. 同步函数下，并行队列不受影响，因为并行不需要等待上一个任务执行完成。如果是串行队列，那在当前线程下会发生死锁。
+
+5. 主队列dispatch_get_main_queue，全局队列dispatch_get_global_queue内部实现
+6. dispatch_queue_create创建一个队列的原理
+7. dispatch_async内部实现
 
 # 引用
 
