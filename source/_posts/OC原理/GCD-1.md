@@ -742,7 +742,7 @@ dispatch_async(dispatch_queue_t dq, dispatch_block_t work)
 	dispatch_continuation_t dc = _dispatch_continuation_alloc();
 	uintptr_t dc_flags = DC_FLAG_CONSUME;
 	dispatch_qos_t qos;
-
+  // 任务包装器，只有这里有对work的操作
 	qos = _dispatch_continuation_init(dc, dq, work, 0, dc_flags);
 	_dispatch_continuation_async(dq, dc, qos, dc->dc_flags);
 }
@@ -772,6 +772,7 @@ _dispatch_continuation_init(dispatch_continuation_t dc,
   // 所以会走这里，func可以理解为work的方法名。
 	dispatch_function_t func = _dispatch_Block_invoke(work);
 	if (dc_flags & DC_FLAG_CONSUME) {
+	   // 设置方法
 		func = _dispatch_call_block_and_release;
 	}
 	// 这里又是重点内容
@@ -779,7 +780,7 @@ _dispatch_continuation_init(dispatch_continuation_t dc,
 }
 ```
 
-我们进一步查看`_dispatch_continuation_init_f`源码：
+我们进一步查看`_dispatch_continuation_init_f`源码，其内部主要是为了保存block
 
 ```
 static inline dispatch_qos_t
@@ -791,9 +792,9 @@ _dispatch_continuation_init_f(dispatch_continuation_t dc,
 	pthread_priority_t pp = 0;
 	// 设置dc_flags
 	dc->dc_flags = dc_flags | DC_FLAG_ALLOCATED;
-	// 设置方法名
+	// 设置方法
 	dc->dc_func = f;
-	// 方法实现，我们知道dispatch_async是没有参数的。
+	// 方法实现。
 	dc->dc_ctxt = ctxt;
 	// 设置优先级
 	if (!(flags & DISPATCH_BLOCK_HAS_PRIORITY)) {
@@ -804,6 +805,195 @@ _dispatch_continuation_init_f(dispatch_continuation_t dc,
 	return _dispatch_continuation_priority_set(dc, dqu, pp, flags);
 }
 ```
+
+以上内容呢，是`qos = _dispatch_continuation_init(dc, dq, work, 0, dc_flags);`的内部实现，接下来我们再看下一句代码
+`_dispatch_continuation_async`。
+
+
+```
+static inline void
+_dispatch_continuation_async(dispatch_queue_class_t dqu,
+		dispatch_continuation_t dc, dispatch_qos_t qos, uintptr_t dc_flags)
+{
+#if DISPATCH_INTROSPECTION
+	if (!(dc_flags & DC_FLAG_NO_INTROSPECTION)) {
+		_dispatch_trace_item_push(dqu, dc);
+	}
+#else
+	(void)dc_flags;
+#endif
+	return dx_push(dqu._dq, dc, qos);
+}
+```
+
+这里主要执行的就是`dx_push`。我们全局搜了一下，它是一个宏。
+
+```
+#define dx_push(x, y, z) dx_vtable(x)->dq_push(x, y, z)
+```
+
+接下来，就有点迷茫了，`dq_push`是个什么鬼东西？全局搜一下。
+
+![](dq_push.jpg)
+
+我们发现，dq_push的内容是根据当前类型赋值的，比如是串行，那就是一个`_dispatch_lane_push`，我们这里使用的并发队列，所以，应该执行的是`_dispatch_lane_concurrent_push`。
+
+```
+void
+_dispatch_lane_concurrent_push(dispatch_lane_t dq, dispatch_object_t dou,
+		dispatch_qos_t qos)
+{
+  // 一堆条件判断
+	if (dq->dq_items_tail == NULL &&
+			!_dispatch_object_is_waiter(dou) &&
+			!_dispatch_object_is_barrier(dou) &&
+			_dispatch_queue_try_acquire_async(dq)) {
+		// 我们先看看这个东西
+		return _dispatch_continuation_redirect_push(dq, dou, qos);
+	}
+
+  // 最后会执行到这里。
+	_dispatch_lane_push(dq, dou, qos);
+}
+```
+
+经过一系列判断，执行到`_dispatch_continuation_redirect_push`.
+
+```
+static void
+_dispatch_continuation_redirect_push(dispatch_lane_t dl,
+		dispatch_object_t dou, dispatch_qos_t qos)
+{
+	if (likely(!_dispatch_object_is_redirection(dou))) {
+	   // 这里会生成_dc，内部就不细说了，主要是为了绑定block，target
+		dou._dc = _dispatch_async_redirect_wrap(dl, dou);
+	} else if (!dou._dc->dc_ctxt) {
+	   // 如果没有实现，赋值一个
+		dou._dc->dc_ctxt = (void *)
+		(uintptr_t)_dispatch_queue_autorelease_frequency(dl);
+	}
+   // 这里指向target
+	dispatch_queue_t dq = dl->do_targetq;
+	if (!qos) qos = _dispatch_priority_qos(dq->dq_priority);
+	// 又来了一个dx_push
+	dx_push(dq, dou, qos);
+}
+```
+
+看到这里就有疑惑了，上一步刚执行了`dx_push·，怎么这里有来了一个？
+
+其实就好比Person继承自NSObject，比如实现init方法，会通过isa指向父类，调用父类的方法，这里也是一样的，通过do_targetq指向父类，执行父类的方法。父类就是`_dispatch_root_queue_push`。
+
+```
+void
+_dispatch_root_queue_push(dispatch_queue_global_t rq, dispatch_object_t dou,
+		dispatch_qos_t qos)
+{
+#if DISPATCH_USE_KEVENT_WORKQUEUE
+	dispatch_deferred_items_t ddi = _dispatch_deferred_items_get();
+	// 这里不是重点内容，不需要看
+	if (unlikely(ddi && ddi->ddi_can_stash)) {...}
+#endif
+#if HAVE_PTHREAD_WORKQUEUE_QOS
+	if (_dispatch_root_queue_push_needs_override(rq, qos)) {
+		return _dispatch_root_queue_push_override(rq, dou, qos);
+	}
+#else
+	(void)qos;
+#endif
+	_dispatch_root_queue_push_inline(rq, dou, dou, 1);
+}
+```
+
+重点也就是在`_dispatch_root_queue_push_inline`。
+
+```
+static inline void
+_dispatch_root_queue_push_inline(dispatch_queue_global_t dq,
+		dispatch_object_t _head, dispatch_object_t _tail, int n)
+{
+	struct dispatch_object_s *hd = _head._do, *tl = _tail._do;
+	if (unlikely(os_mpsc_push_list(os_mpsc(dq, dq_items), hd, tl, do_next))) {
+		return _dispatch_root_queue_poke(dq, n, 0);
+	}
+}
+```
+
+在这个函数内部执行`_dispatch_root_queue_poke`，这个函数内部其实也就是一个`_dispatch_root_queue_poke_slow`方法。是整个dispatch中相当重要的一环。
+
+```
+static void
+_dispatch_root_queue_poke_slow(dispatch_queue_global_t dq, int n, int floor) {
+...
+// 这里执行跟类queue的初始化，内部是一个dispatch_once，只会初始化一次。
+_dispatch_root_queues_init();
+...
+// 如果是Global类型的函数，直接返回了。
+if (dx_type(dq) == DISPATCH_QUEUE_GLOBAL_ROOT_TYPE)
+#endif
+	{
+		_dispatch_root_queue_debug("requesting new worker thread for global "
+				"queue: %p", dq);
+		r = _pthread_workqueue_addthreads(remaining,
+				_dispatch_priority_to_pp_prefer_fallback(dq->dq_priority));
+		(void)dispatch_assume_zero(r);
+		return;
+	}
+...
+// 这中间省略的代码是判断remaining数，也就是需要创建的线程数。
+do {
+		_dispatch_retain(dq); // released in _dispatch_worker_thread
+		// 循环创建线程
+		while ((r = pthread_create(pthr, attr, _dispatch_worker_thread, dq))) {
+			if (r != EAGAIN) {
+				(void)dispatch_assume_zero(r);
+			}
+			_dispatch_temporary_resource_shortage();
+		}
+	} while (--remaining);
+...
+} while (!os_atomic_cmpxchgv2o(dq, dgq_thread_pool_size, t_count,
+			t_count - remaining, &t_count, acquire));
+```
+
+这个是GCD内部相当重点的一个点，需要创建线程来执行任务。线程创建完成了，但是内部是怎么调用block实现的，下一章有介绍。
+
+接下来，我们返回到`_dispatch_lane_concurrent_push`这里，也就是连续的`dq_push`之后，最终会执行`_dispatch_lane_push`。
+
+```
+void
+_dispatch_lane_push(dispatch_lane_t dq, dispatch_object_t dou,
+		dispatch_qos_t qos)
+{
+	dispatch_wakeup_flags_t flags = 0;
+	struct dispatch_object_s *prev;
+
+	if (unlikely(_dispatch_object_is_waiter(dou))) {
+		return _dispatch_lane_push_waiter(dq, dou._dsc, qos);
+	}
+
+	dispatch_assert(!_dispatch_object_is_global(dq));
+	qos = _dispatch_queue_push_qos(dq, qos);
+  
+  ...
+  
+	os_mpsc_push_update_prev(os_mpsc(dq, dq_items), prev, dou._do, do_next);
+	if (flags) {
+	  // 这里的重点是wakeup
+		return dx_wakeup(dq, qos, flags);
+	}
+}
+```
+
+而dx_wakeup与dx_push如出一辙，都是宏定义，根据当前队列进行赋值，这里就不细说了，直接选择root类型的方法。
+
+由于代码巨大，这里直接放了截图。
+
+![](wakeup.jpg)
+
+最后执行的是wakeup，要保持线程是清醒的，其实就是为了保活。直到block执行完毕。没有target没有上一层之后，执行release操作。
+
+
 这个也就是dispatch_async的实现。下一章会继续block是如何调用的。
 
 
@@ -820,7 +1010,7 @@ _dispatch_continuation_init_f(dispatch_continuation_t dc,
 
 5. 主队列dispatch_get_main_queue，全局队列dispatch_get_global_queue内部实现
 6. dispatch_queue_create创建一个队列的原理
-7. dispatch_async内部实现
+7. dispatch_async内部实现，异步会创建线程，然后进行weakup保活操作，block执行完成之后进行释放。
 
 # 引用
 
