@@ -1,5 +1,5 @@
 ---
-title: GCD-1
+title: GCD底层原理-1
 date: 2021-05-10 21:24:11
 tags:
     - Objective-C,
@@ -250,6 +250,7 @@ GCD使用block封装任务，任务的block没有参数也没有返回值。
 * 串行会等待一个任务执行完毕才执行。
 
 同步和异步：
+同步和异步是对当前线程而言的。
 * 异步函数下，不管是串行队列还是并行队列，都不影响block块之外的内存执。因为block内部是在新开启的线程中执行的。
 * 同步函数下，并行队列不受影响，因为并行不需要等待上一个任务执行完成。如果是串行队列，那在当前线程下会发生死锁。
 
@@ -761,7 +762,6 @@ _dispatch_continuation_init(dispatch_continuation_t dc,
 
 	dc_flags |= DC_FLAG_BLOCK | DC_FLAG_ALLOCATED;
 	if (unlikely(_dispatch_block_has_private_data(work))) {
-    	// 执行的都是likely的操作
     	// dc_flags赋值	
 		dc->dc_flags = dc_flags;
 		// block赋值到dc_ctxt中
@@ -925,7 +925,7 @@ _dispatch_root_queue_push_inline(dispatch_queue_global_t dq,
 static void
 _dispatch_root_queue_poke_slow(dispatch_queue_global_t dq, int n, int floor) {
 ...
-// 这里执行跟类queue的初始化，内部是一个dispatch_once，只会初始化一次。
+// 这里执行跟类queue的初始化，内部是一个dispatch_once，只会初始化一次。单利，下一章介绍
 _dispatch_root_queues_init();
 ...
 // 如果是Global类型的函数，直接返回了。
@@ -956,7 +956,23 @@ do {
 			t_count - remaining, &t_count, acquire));
 ```
 
-这个是GCD内部相当重点的一个点，需要创建线程来执行任务。线程创建完成了，但是内部是怎么调用block实现的，下一章有介绍。
+这个是GCD内部相当重点的一个点，首先进行root_queues的初始化，然后创建线程来执行任务。
+
+```
+_dispatch_root_queues_init();
+
+_dispatch_root_queues_init(void)
+{
+	dispatch_once_f(&_dispatch_root_queues_pred, NULL,
+			_dispatch_root_queues_init_once);
+}
+```
+
+初始化函数内部调用的`dispatch_once_f`，只会执行一次，这一内容，下一章会有介绍。`_dispatch_root_queues_init_once`重点要看的是这个内部是个啥。
+
+`_dispatch_root_queues_init_once`的内部实现代码就不放出来了，太长了，主要的作用就是创建与线程直接的依赖，同时关联线程的回调方法`_dispatch_worker_thread2`。
+
+root_queues初始化完成之后，再创建线程，但是内部是怎么调用block实现的，下一章有介绍。
 
 接下来，我们返回到`_dispatch_lane_concurrent_push`这里，也就是连续的`dq_push`之后，最终会执行`_dispatch_lane_push`。
 
@@ -1005,7 +1021,7 @@ _dispatch_lane_push(dispatch_lane_t dq, dispatch_object_t dou,
 4. 函数与队列的4种组合，以及面试题
     1. 并发不会等待一个任务执行完成才执行。
     2. 串行会等待一个任务执行完毕才执行。
-    3. 异步函数下，不管是串行队列还是并行队列，都不影响block块之外的内存执。因为block内部是在新开启的线程中执行的。
+    3. 异步函数下，不管是串行队列还是并行队列，都不影响block块之外的任务执。因为block内部是在新开启的线程中执行的。
     4. 同步函数下，并行队列不受影响，因为并行不需要等待上一个任务执行完成。如果是串行队列，那在当前线程下会发生死锁。
 
 5. 主队列dispatch_get_main_queue，全局队列dispatch_get_global_queue内部实现
