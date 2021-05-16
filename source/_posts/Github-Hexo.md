@@ -249,8 +249,31 @@ hexo new page about
     ![](image.jpg)
     ```
 
+# 遇到的问题
 
-## 总结
+## 1. 默认buffer太小，push、pull失败
+```
+fatal: unable to access 'https://github.com/liujiaboy/liujiaboy.github.io.git/': LibreSSL SSL_read: SSL_ERROR_SYSCALL, errno 60
+```
+
+解决方案：
+
+```
+git config --global http.postBuffer 1048576000
+```
+
+这中问题的原因是，大文件造成的，curl的postBuffer默认值太小，增大缓存配置就好了。
+
+## Error: Spawn failed
+
+1. 删除.deploy_git文件夹;
+2. 输入git config --global core.autocrlf false
+3. 然后，依次执行：
+    1. hexo clean
+    2. hexo g
+    3. hexo d
+
+# 总结
 感谢大佬们做的总结，不一一列举了。感谢
 [next: Github](https://github.com/theme-next/hexo-theme-next)
 
