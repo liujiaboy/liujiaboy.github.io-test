@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="3WOMyh0YrdEECGDv2GOACbgBEtVz_dJbyA_2G-pjr28">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liujiaboy.github.io","root":"/","scheme":"Pisces","version":"7.7.2","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="1. 状态寄存器CPU内部的寄存器中,有一种特殊的寄存器(对于不同的处理器,个数和结构都可能不同)。这种寄存器在ARM中，被称为状态寄存器就是CPSR(current program status register)寄存器。 CPSR和其他寄存器不一样,其他寄存器是用来存放数据的，都是整个寄存器具有一个含义。而CPSR寄存器是按位起作用的，也就是说，它的每一位都有专门的含义，记录特定的信息。  C">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ARM汇编-3 状态寄存器 if、loop、switch">
+<meta property="og:url" content="http://liujiaboy.github.io/2021/04/14/%E9%80%86%E5%90%91/ARM%E6%B1%87%E7%BC%96-3/index.html">
+<meta property="og:site_name" content="不会飞的小白">
+<meta property="og:description" content="1. 状态寄存器CPU内部的寄存器中,有一种特殊的寄存器(对于不同的处理器,个数和结构都可能不同)。这种寄存器在ARM中，被称为状态寄存器就是CPSR(current program status register)寄存器。 CPSR和其他寄存器不一样,其他寄存器是用来存放数据的，都是整个寄存器具有一个含义。而CPSR寄存器是按位起作用的，也就是说，它的每一位都有专门的含义，记录特定的信息。  C">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://liujiaboy.github.io/2021/04/14/%E9%80%86%E5%90%91/ARM%E6%B1%87%E7%BC%96-3/.jpg">
+<meta property="og:image" content="http://liujiaboy.github.io/2021/04/14/%E9%80%86%E5%90%91/ARM%E6%B1%87%E7%BC%96-3/do-while.png">
+<meta property="og:image" content="http://liujiaboy.github.io/2021/04/14/%E9%80%86%E5%90%91/ARM%E6%B1%87%E7%BC%96-3/while.jpg">
+<meta property="og:image" content="http://liujiaboy.github.io/2021/04/14/%E9%80%86%E5%90%91/ARM%E6%B1%87%E7%BC%96-3/for.jpg">
+<meta property="og:image" content="http://liujiaboy.github.io/2021/04/14/%E9%80%86%E5%90%91/ARM%E6%B1%87%E7%BC%96-3/switch-viewmemory.jpg">
+<meta property="og:image" content="http://liujiaboy.github.io/2021/04/14/%E9%80%86%E5%90%91/ARM%E6%B1%87%E7%BC%96-3/switch-2.jpg">
+<meta property="article:published_time" content="2021-04-14T14:05:25.000Z">
+<meta property="article:modified_time" content="2021-05-10T08:35:30.520Z">
+<meta property="article:author" content="不会飞的小白">
+<meta property="article:tag" content="ARM汇编">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://liujiaboy.github.io/2021/04/14/%E9%80%86%E5%90%91/ARM%E6%B1%87%E7%BC%96-3/.jpg">
+
+<link rel="canonical" href="http://liujiaboy.github.io/2021/04/14/%E9%80%86%E5%90%91/ARM%E6%B1%87%E7%BC%96-3/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true
+  };
+</script>
+
+  <title>ARM汇编-3 状态寄存器 if、loop、switch | 不会飞的小白</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="不会飞的小白" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">不会飞的小白</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">Stay Hungry, Stay Foolish</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/liujiaboy" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/04/14/%E9%80%86%E5%90%91/ARM%E6%B1%87%E7%BC%96-3/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="不会飞的小白">
+      <meta itemprop="description" content="一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="不会飞的小白">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          ARM汇编-3 状态寄存器 if、loop、switch
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-04-14 22:05:25" itemprop="dateCreated datePublished" datetime="2021-04-14T22:05:25+08:00">2021-04-14</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-05-10 16:35:30" itemprop="dateModified" datetime="2021-05-10T16:35:30+08:00">2021-05-10</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E9%80%86%E5%90%91/" itemprop="url" rel="index"><span itemprop="name">逆向</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="1-状态寄存器"><a href="#1-状态寄存器" class="headerlink" title="1. 状态寄存器"></a>1. 状态寄存器</h1><p>CPU内部的寄存器中,有一种特殊的寄存器(对于不同的处理器,个数和结构都可能不同)。这种寄存器在ARM中，被称为状态寄存器就是CPSR(current program status register)寄存器。</p>
+<p>CPSR和其他寄存器不一样,其他寄存器是用来存放数据的，都是整个寄存器具有一个含义。而CPSR寄存器是按位起作用的，也就是说，它的每一位都有专门的含义，记录特定的信息。</p>
+<blockquote>
+<p>CPSR寄存器是32位的。</p>
+</blockquote>
+<ul>
+<li>CPSR的低8位（包括I、F、T和M[4：0]）称为控制位，程序无法修改,除非CPU运行于特权模式下,程序才能修改控制位!</li>
+<li>N、Z、C、V均为条件码标志位。它们的内容可被算术或逻辑运算的结果所改变，并且可以决定某条指令是否被执行！</li>
+</ul>
+<p><img src=".jpg" alt=""></p>
+<h2 id="1-1-N-（Negative）"><a href="#1-1-N-（Negative）" class="headerlink" title="1.1 N （Negative）"></a>1.1 N （Negative）</h2><p>cpsr的第31位是N，它记录相关指令执行后的结果，结果是负数，则N=1，非负数则N=0。</p>
+<blockquote>
+<p>在ARM64的指令集中，逻辑运算或者算数运算（add、sub、or等）指令的执行会影响状态寄存器的值。</p>
+</blockquote>
+<p>n=1：结果是负数<br>n=0：结果位非负数，包括0</p>
+<h2 id="1-2-Z（Zero）"><a href="#1-2-Z（Zero）" class="headerlink" title="1.2 Z（Zero）"></a>1.2 Z（Zero）</h2><p>cpsr的第30位是Z，0标志位。它记录相关指令执行后其结果是否为。如果结果为0，那么Z = 1；如果结果不为0，那么Z = 0.</p>
+<p>z=1：结果为0<br>z=0：结果不为0</p>
+<h2 id="1-3-C（Carry）"><a href="#1-3-C（Carry）" class="headerlink" title="1.3 C（Carry）"></a>1.3 C（Carry）</h2><p>cpsr第29位是c进位标志位，一般情况进行下无符号述的运算。</p>
+<p>加法运算：当运算结果产生了进位时（无符号数溢出）c=1，没有溢出c=0<br>减法运算：包括（CPM）当运算时产生了借位（无符号数溢出），c=0，没有溢出c=1</p>
+<h3 id="1-3-1-进位"><a href="#1-3-1-进位" class="headerlink" title="1.3.1 进位"></a>1.3.1 进位</h3><p>两个数据相加，比如正常的十进制运算，5+5=10，向十位数进1，个位数为0。但是超过其最大的位数时，发生溢出，导致进位的值无法保存，也就是说进位的值丢失了。但是CPU在运算的时候，并不会丢弃这个进位的值，二手放在寄存器里了，也就是cpsr的c位。</p>
+<h3 id="1-3-2-借位"><a href="#1-3-2-借位" class="headerlink" title="1.3.2 借位"></a>1.3.2 借位</h3><p>两个数据做减法操作，有可能向更高位借位。比如：10-5=5，各位不够减，需要向十位去借。这时候会用c位来标记借位。</p>
+<h2 id="1-4-V（Overflow）"><a href="#1-4-V（Overflow）" class="headerlink" title="1.4 V（Overflow）"></a>1.4 V（Overflow）</h2><p>cpsr的第28位是V，溢出标志位。在进行有符号数运算的时候，如果超过了机器所能标识的范围，称为溢出。</p>
+<ul>
+<li>正数 + 正数 = 负数。溢出</li>
+<li>负数 + 负数 = 正数。溢出</li>
+<li>正数 + 负数 不可能发生溢出</li>
+</ul>
+<h1 id="1-5-总结"><a href="#1-5-总结" class="headerlink" title="1.5 总结"></a>1.5 总结</h1><p>NZ：是否为0，判断正负<br>CV：无符号，有符号判断是否溢出 </p>
+<h1 id="2-全局变量、常量"><a href="#2-全局变量、常量" class="headerlink" title="2. 全局变量、常量"></a>2. 全局变量、常量</h1><p>开始这一节之前，先知道我们的内存分区划分：</p>
+<p>代码区：存放代码，可读，可执行<br>栈区：参数、局部变量、临时数据，可读可写<br>堆区：动态申请，可读可写</p>
+<p>全局变量：可读可写<br>常量区：只读</p>
+<p>接下来，我们分析代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 定义一个全局变量</span><br><span class="line">int g &#x3D; 12;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 定义一个方法</span><br><span class="line">int func(int a,int b)&#123;</span><br><span class="line">    &#x2F;&#x2F; &#39;haha&#39;就是一个常量，在常量区</span><br><span class="line">    printf(&quot;haha&quot;);</span><br><span class="line">    &#x2F;&#x2F; 局部变量c</span><br><span class="line">    int c &#x3D; a + g + b;</span><br><span class="line">    return c;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int main(int argc, char * argv[]) &#123;</span><br><span class="line">   </span><br><span class="line">    func(10, 20);</span><br><span class="line">    </span><br><span class="line">    return UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>执行之后，走汇编流程，进行查看</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">Demo&#96;func:</span><br><span class="line">-&gt;  0x100bc211c &lt;+0&gt;:  sub    sp, sp, #0x20             ; &#x3D;0x20 </span><br><span class="line">    0x100bc2120 &lt;+4&gt;:  stp    x29, x30, [sp, #0x10]</span><br><span class="line">    0x100bc2124 &lt;+8&gt;:  add    x29, sp, #0x10            ; &#x3D;0x10 </span><br><span class="line">    0x100bc2128 &lt;+12&gt;: stur   w0, [x29, #-0x4]</span><br><span class="line">    0x100bc212c &lt;+16&gt;: str    w1, [sp, #0x8]</span><br><span class="line">    0x100bc2130 &lt;+20&gt;: adrp   x0, 1</span><br><span class="line">    0x100bc2134 &lt;+24&gt;: add    x0, x0, #0xf9f            ; &#x3D;0xf9f </span><br><span class="line">    &#x2F;&#x2F; ① 这里执行了printf操作，大致可以判断，x0中存的就是&#39;haha&#39;</span><br><span class="line">    0x100bc2138 &lt;+28&gt;: bl     0x100bc25b0               ; symbol stub for: printf</span><br><span class="line">    0x100bc213c &lt;+32&gt;: ldur   w8, [x29, #-0x4]</span><br><span class="line">    &#x2F;&#x2F; ② 这里获取的是全局变量</span><br><span class="line">    0x100bc2140 &lt;+36&gt;: adrp   x9, 3</span><br><span class="line">    0x100bc2144 &lt;+40&gt;: add    x9, x9, #0x648            ; &#x3D;0x648 </span><br><span class="line">    0x100bc2148 &lt;+44&gt;: ldr    w10, [x9]</span><br><span class="line">    0x100bc214c &lt;+48&gt;: add    w8, w8, w10</span><br><span class="line">    0x100bc2150 &lt;+52&gt;: ldr    w10, [sp, #0x8]</span><br><span class="line">    0x100bc2154 &lt;+56&gt;: add    w8, w8, w10</span><br><span class="line">    0x100bc2158 &lt;+60&gt;: str    w8, [sp, #0x4]</span><br><span class="line">    0x100bc215c &lt;+64&gt;: ldr    w8, [sp, #0x4]</span><br><span class="line">    0x100bc2160 &lt;+68&gt;: mov    x0, x8</span><br><span class="line">    0x100bc2164 &lt;+72&gt;: ldp    x29, x30, [sp, #0x10]</span><br><span class="line">    0x100bc2168 &lt;+76&gt;: add    sp, sp, #0x20             ; &#x3D;0x20 </span><br><span class="line">    0x100bc216c &lt;+80&gt;: ret</span><br></pre></td></tr></table></figure>
+
+<p>①这里执行了printf操作，这里看一些是否真的打印了’haha’。我们追一下x0寄存器的变化。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">0x100bc2130 &lt;+20&gt;: adrp   x0, 1</span><br></pre></td></tr></table></figure>
+<p>这里有一个关键字需要注意一下：<br>adrp: 针对address page操作<br>这一行代码有三个操作：</p>
+<ol>
+<li>将1左移12位（即在1后加3个0变成1000）</li>
+<li>将当前寄存器的地址的低12位清0，即当前行的地址的后3位清0。0x1002b2184 -&gt; 0x100bc2130</li>
+<li>把0x1000+0x100bc2000赋值给x0，x0=0x100bc3000，即当前行地址的倒数第4位与x0后面的数字相加</li>
+</ol>
+<p>说白了，这句代码的意思就是找到某一页地址的开始。我们走断点，打印一下x0.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">(lldb) register read x0</span><br><span class="line">x0 &#x3D; 0x0000000100bc3000</span><br></pre></td></tr></table></figure>
+
+<p>下一句的代码是，<code>add x0, x0, #0xf9f</code>，就x0的地址+0x0xf9f<br>获取x0的值位0x100bc3f9f</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">(lldb) register read x0</span><br><span class="line">x0 &#x3D; 0x0000000100bc3f9f  &quot;haha&quot;</span><br><span class="line"></span><br><span class="line">(lldb) x 0x0000000100bc3f9f</span><br><span class="line">0x100bc3f9f: 68 61 68 61 00 01 00 00 00 1c 00 00 00 02 00 00  haha............</span><br><span class="line">0x100bc3faf: 00 24 00 00 00 00 00 00 00 24 00 00 00 02 00 00  .$.......$......</span><br></pre></td></tr></table></figure>
+
+<p>我们知道’h’的ASCII码是97，对应的16进制就行0x61，’a’是0x68。就是我们的常量’haha’。</p>
+<p>这样也就拿到了常量的值。<br>需要注意的是，我们的常量是在编译的时候就已经确定了地址。这里通过当前寄存器的地址为参照，偏移一定的值来获取常量所在的页数。</p>
+<p>那继续看一下全局变量</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">0x100bc2140 &lt;+36&gt;: adrp   x9, 3</span><br><span class="line">0x100bc2144 &lt;+40&gt;: add    x9, x9, #0x648            ; &#x3D;0x648</span><br></pre></td></tr></table></figure>
+
+<p>我们使用相同的方式，打印一下x9的值。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; adrp的断点</span><br><span class="line">(lldb) register read x9</span><br><span class="line">x9 &#x3D; 0x0000000100bc5000  </span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; add 的断点</span><br><span class="line">lldb) register read x9</span><br><span class="line">x9 &#x3D; 0x0000000100bc5648  g  &#x2F;&#x2F; 这里拿到的是变量g，而g在内存中的值是0c</span><br><span class="line">(lldb) x 0x0000000100bc5648</span><br><span class="line">0x100bc5648: 0c 00 00 00 0c 00 00 00 38 5e 44 29 02 00 00 00  ........8^D)....</span><br><span class="line">0x100bc5658: f0 33 bc 00 01 00 00 00 d0 4f bc 00 01 00 00 00  .3.......O......</span><br></pre></td></tr></table></figure>
+
+<p>我们可以通过相同的方式获取全局变量的值，g=12。</p>
+<p>所以局部变量和全局变量都是通过adrp以当前寄存器的地址为参照来查找address来获取值的。</p>
+<h2 id="2-1-汇编还原高级语言"><a href="#2-1-汇编还原高级语言" class="headerlink" title="2.1 汇编还原高级语言"></a>2.1 汇编还原高级语言</h2><p>这里使用一个牛逼的工具Hopper，可以查看对应的方法转化成汇编之后的代码。</p>
+<ol>
+<li>build成功之后，在我们的工程里有一个’Products’文件，里头有对应的<code>xxx.app</code>。</li>
+<li>点击show in finder，找到对应的app，右键显示包内容。</li>
+<li>找到与项目同名的黑乎乎的东西（可执行文件），直接拖到Hopper里头就可以了。</li>
+</ol>
+<p>我们找到对应的方法func</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line">_func:</span><br><span class="line">000000010000611c         sub        sp, sp, #0x20    ; CODE XREF&#x3D;_main+32</span><br><span class="line">0000000100006120         stp        x29, x30, [sp, #0x10]</span><br><span class="line">0000000100006124         add        x29, sp, #0x10</span><br><span class="line">&#x2F;&#x2F; 这里我们可以知道有两个变量，w0、w1分别存起来</span><br><span class="line">0000000100006128         stur       w0, [x29, #-0x4]</span><br><span class="line">000000010000612c         str        w1, [sp, #0x8]</span><br><span class="line">&#x2F;&#x2F; adrp操作，获取页数</span><br><span class="line">0000000100006130         adrp       x0, #0x100007000 ; argument #1 for method imp___stubs__printf</span><br><span class="line">&#x2F;&#x2F; 这里直接把结果给出来了。haha存放在x0</span><br><span class="line">0000000100006134         add        x0, x0, #0xf9f   ; &quot;haha&quot;</span><br><span class="line">&#x2F;&#x2F; 执行printf</span><br><span class="line">0000000100006138         bl         imp___stubs__printf</span><br><span class="line">&#x2F;&#x2F; 取值，这个位置的值就是w0</span><br><span class="line">000000010000613c         ldur       w8, [x29, #-0x4]</span><br><span class="line">&#x2F;&#x2F; adrp操作，根据页数获取值</span><br><span class="line">0000000100006140         adrp       x9, #0x100009000</span><br><span class="line">&#x2F;&#x2F; 获取变量_g。我们可以通过地址去找对应的值。可以在Hopper中找到对应的值</span><br><span class="line">0000000100006144         add        x9, x9, #0x648   ; _g</span><br><span class="line">&#x2F;&#x2F; 赋值w10 &#x3D; _g </span><br><span class="line">0000000100006148         ldr        w10, x9</span><br><span class="line">&#x2F;&#x2F; 执行加法操作 w8 +&#x3D; w10</span><br><span class="line">000000010000614c         add        w8, w8, w10</span><br><span class="line">&#x2F;&#x2F; 取值。也就是获取第二个参数的值w1</span><br><span class="line">0000000100006150         ldr        w10, [sp, #0x8]</span><br><span class="line">&#x2F;&#x2F; 执行加法操作 w8 +&#x3D; w10</span><br><span class="line">0000000100006154         add        w8, w8, w10</span><br><span class="line">&#x2F;&#x2F; 把w8的值存起来</span><br><span class="line">0000000100006158         str        w8, [sp, #0x4]</span><br><span class="line">&#x2F;&#x2F; 取值w8</span><br><span class="line">000000010000615c         ldr        w8, [sp, #0x4]</span><br><span class="line">&#x2F;&#x2F; 把w8的值给x0（x0存放返回值）</span><br><span class="line">0000000100006160         mov        x0, x8</span><br><span class="line">&#x2F;&#x2F; 释放内存，return</span><br><span class="line">0000000100006164         ldp        x29, x30, [sp, #0x10]</span><br><span class="line">0000000100006168         add        sp, sp, #0x20</span><br><span class="line">000000010000616c         ret</span><br></pre></td></tr></table></figure>
+
+<p>汇编的代码逻辑已经直接表示出来了。最终可以得出一个函数的方法</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">int func(int w1, int w2) &#123;</span><br><span class="line">    printf(&quot;haha&quot;);</span><br><span class="line">    return w1 + _g + w2;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h1 id="2-条件判断"><a href="#2-条件判断" class="headerlink" title="2. 条件判断"></a>2. 条件判断</h1><h2 id="2-1-cmp（Compare）比较指令"><a href="#2-1-cmp（Compare）比较指令" class="headerlink" title="2.1 cmp（Compare）比较指令"></a>2.1 cmp（Compare）比较指令</h2><p>cmp把一个寄存器的内容和另一个寄存器的内容（或立即数）进行比较。但不存储结果，只是更改标志。</p>
+<p>一般cmp做完判断后会进行跳转，后面通常会跟上b指令。</p>
+<p>cmp比较，其实是一个减法操作，但是不会改变两个比较的值。通过减法的结果去比较。</p>
+<ul>
+<li>BL 标号：跳转到标号处执行</li>
+<li>B.LT 标号：比价结果是<strong>小于（less than）</strong>，执行标号，否则不跳转</li>
+<li>B.LE 标号：比较结果是<strong>小于等于（less than or qeual to）</strong>，执行标号，否则不跳转</li>
+<li>B.GT  标号：比较结果是<strong>大于（greater than）</strong>，执行标号，否则不跳转</li>
+<li>B.GE  标号：比较结果是<strong>大于等于（greater than or equal to）</strong>，执行标号，否则不跳转</li>
+<li>B.EQ  标号：比较结果是<strong>等于(equal to)</strong>，执行标号，否则不跳转</li>
+<li>B.NE 标号：比较结果是<strong>不等于（not equal to）</strong>，执行标号，否则不跳转</li>
+<li>B.LS  标号：比较结果是<strong>无符号小于等于</strong>，执行标号，否则不跳转</li>
+<li>B.LO  标号：比较结果是<strong>无符号小于</strong>，执行标号，否则不跳转</li>
+<li>B.HI  标号：比较结果是<strong>无符号大于</strong>，执行标号，否则不跳转</li>
+<li>B.HS  标号：比较结果是<strong>无符号大于等于</strong>，执行标号，否则不跳转</li>
+</ul>
+<p>b.gt #0x10000f8d:这个地址是else的跳转地址</p>
+<h1 id="3-循环"><a href="#3-循环" class="headerlink" title="3. 循环"></a>3. 循环</h1><blockquote>
+<p>使用汇编的时候一定是在真机上运行。或者直接选中真机，直接<code>Command+B</code>buid之后，找到对应的可执行文件，直接放在Hopper里就行。</p>
+</blockquote>
+<h1 id="3-1-do-while"><a href="#3-1-do-while" class="headerlink" title="3.1 do-while"></a>3.1 do-while</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">void loopFunc() &#123;</span><br><span class="line">    int nsum &#x3D; 0;</span><br><span class="line">    int i &#x3D; 0;</span><br><span class="line">    do &#123;</span><br><span class="line">        nsum +&#x3D; 10;</span><br><span class="line">        i ++;</span><br><span class="line">    &#125; while (i &lt; 100);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>看一下汇编下是什么代码逻辑：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">FunctionDemo&#96;loopFunc:</span><br><span class="line">-&gt;  0x102c2a764 &lt;+0&gt;:  sub    sp, sp, #0x10             ; &#x3D;0x10 </span><br><span class="line">    &#x2F;&#x2F; 这里是把0放在sp+0xc里头，w：低32位，zr&#x3D;&#x3D;zero</span><br><span class="line">    0x102c2a768 &lt;+4&gt;:  str    wzr, [sp, #0xc]   &#x2F;&#x2F; 假设#0xc存的是a</span><br><span class="line">    0x102c2a76c &lt;+8&gt;:  str    wzr, [sp, #0x8]   &#x2F;&#x2F; 假设#0x8存的是b,之后用的都是w8，会比较乱</span><br><span class="line">    &#x2F;&#x2F; ① 读取a的值</span><br><span class="line">    0x102c2a770 &lt;+12&gt;: ldr    w8, [sp, #0xc]</span><br><span class="line">    &#x2F;&#x2F; 执行a +&#x3D; 10的操作。</span><br><span class="line">    0x102c2a774 &lt;+16&gt;: add    w8, w8, #0xa              ; &#x3D;0x1 </span><br><span class="line">    &#x2F;&#x2F; 然后把a的值存起来。</span><br><span class="line">    0x102c2a778 &lt;+20&gt;: str    w8, [sp, #0xc]</span><br><span class="line">    &#x2F;&#x2F; 取值b</span><br><span class="line">    0x102c2a77c &lt;+24&gt;: ldr    w8, [sp, #0x8]</span><br><span class="line">    &#x2F;&#x2F; b +&#x3D; 1</span><br><span class="line">    0x102c2a780 &lt;+28&gt;: add    w8, w8, #0x1              ; &#x3D;0x1 </span><br><span class="line">    &#x2F;&#x2F; 把b存起来</span><br><span class="line">    0x102c2a784 &lt;+32&gt;: str    w8, [sp, #0x8]</span><br><span class="line">    0x102c2a788 &lt;+36&gt;: ldr    w8, [sp, #0x8]</span><br><span class="line">    &#x2F;&#x2F; 比较b的值，b与100比较</span><br><span class="line">    0x102c2a78c &lt;+40&gt;: cmp    w8, #0x64                 ; &#x3D;0x64 </span><br><span class="line">    &#x2F;&#x2F; 如果 lt（小于）if b &lt; 100 跳转到0x102c2a770继续执行。执行①</span><br><span class="line">    0x102c2a790 &lt;+44&gt;: b.lt   0x102c2a770               ; &lt;+12&gt; at main.m:22:14</span><br><span class="line">    0x102c2a794 &lt;+48&gt;: add    sp, sp, #0x10             ; &#x3D;0x10 </span><br><span class="line">    0x102c2a798 &lt;+52&gt;: ret</span><br></pre></td></tr></table></figure>
+
+<p>我们直接使用Hopper工具查看汇编，其实比在Xcode中更方便。</p>
+<p><img src="do-while.png" alt=""></p>
+<h2 id="3-2-while"><a href="#3-2-while" class="headerlink" title="3.2 while"></a>3.2 while</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">void whileFunc() &#123;</span><br><span class="line">    int i &#x3D; 0;</span><br><span class="line">    int nsum &#x3D; 0;</span><br><span class="line">    while (i &lt; 10) &#123;</span><br><span class="line">        nsum +&#x3D; 10;</span><br><span class="line">        i +&#x3D; 1;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们在Hopper里查看源码：</p>
+<p><img src="while.jpg" alt=""></p>
+<p>①处是一个比较，判断w8的值和10的大小，如果<code>b.ge</code>则执行<code>loc_100006128</code>的代码。b.ge是大于等于。<br>②是直接跳转到<code>loc_10000610c</code>的代码。</p>
+<h2 id="3-3-for"><a href="#3-3-for" class="headerlink" title="3.3 for"></a>3.3 for</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">void forFunc() &#123;</span><br><span class="line">    int nsum &#x3D; 0;</span><br><span class="line">    for (int i &#x3D; 0; i &lt; 10; i ++) &#123;</span><br><span class="line">        nsum +&#x3D; i;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们在Hopper里查看源码：</p>
+<p><img src="for.jpg" alt=""></p>
+<p>for循环与while循环区别不大。</p>
+<h1 id="4-switch"><a href="#4-switch" class="headerlink" title="4. switch"></a>4. switch</h1><h2 id="4-1-三个case的switch"><a href="#4-1-三个case的switch" class="headerlink" title="4.1 三个case的switch"></a>4.1 三个case的switch</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">void switchFunc(int a) &#123;</span><br><span class="line">    int nsum &#x3D; 0;</span><br><span class="line">    switch (a) &#123;</span><br><span class="line">        case 1:</span><br><span class="line">            printf(&quot;1&quot;);</span><br><span class="line">            break;</span><br><span class="line">        case 2:</span><br><span class="line">            printf(&quot;2&quot;);</span><br><span class="line">            break;</span><br><span class="line">        case 3:</span><br><span class="line">            printf(&quot;3&quot;);</span><br><span class="line">            break;</span><br><span class="line">        default:</span><br><span class="line">            printf(&quot;default&quot;);</span><br><span class="line">            break;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>还是运行xCode，查看汇编源码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">Demo&#96;switchFunc:</span><br><span class="line">-&gt;  0x100bea0e8 &lt;+0&gt;:   sub    sp, sp, #0x10             ; &#x3D;0x10 </span><br><span class="line">    0x100bea0ec &lt;+4&gt;:   str    w0, [sp, #0xc]</span><br><span class="line">    0x100bea0f0 &lt;+8&gt;:   str    wzr, [sp, #0x8]</span><br><span class="line">    0x100bea0f4 &lt;+12&gt;:  ldr    w8, [sp, #0xc]</span><br><span class="line">    0x100bea0f8 &lt;+16&gt;:  cmp    w8, #0x1                  ; &#x3D;0x1 </span><br><span class="line">    0x100bea0fc &lt;+20&gt;:  str    w8, [sp, #0x4]</span><br><span class="line">    0x100bea100 &lt;+24&gt;:  b.eq   0x100bea128               ; &lt;+64&gt; at main.m:48:18</span><br><span class="line">    0x100bea104 &lt;+28&gt;:  b      0x100bea108               ; &lt;+32&gt; at main.m</span><br><span class="line">    0x100bea108 &lt;+32&gt;:  ldr    w8, [sp, #0x4]</span><br><span class="line">    0x100bea10c &lt;+36&gt;:  cmp    w8, #0x2                  ; &#x3D;0x2 </span><br><span class="line">    0x100bea110 &lt;+40&gt;:  b.eq   0x100bea138               ; &lt;+80&gt; at main.m:51:18</span><br><span class="line">    0x100bea114 &lt;+44&gt;:  b      0x100bea118               ; &lt;+48&gt; at main.m</span><br><span class="line">    0x100bea118 &lt;+48&gt;:  ldr    w8, [sp, #0x4]</span><br><span class="line">    0x100bea11c &lt;+52&gt;:  cmp    w8, #0x3                  ; &#x3D;0x3 </span><br><span class="line">    0x100bea120 &lt;+56&gt;:  b.eq   0x100bea148               ; &lt;+96&gt; at main.m:54:18</span><br><span class="line">    0x100bea124 &lt;+60&gt;:  b      0x100bea158               ; &lt;+112&gt; at main.m:60:18</span><br><span class="line">    0x100bea128 &lt;+64&gt;:  ldr    w8, [sp, #0x8]</span><br><span class="line">    0x100bea12c &lt;+68&gt;:  add    w8, w8, #0x1              ; &#x3D;0x1 </span><br><span class="line">    0x100bea130 &lt;+72&gt;:  str    w8, [sp, #0x8]</span><br><span class="line">    0x100bea134 &lt;+76&gt;:  b      0x100bea164               ; &lt;+124&gt; at main.m:63:1</span><br><span class="line">    0x100bea138 &lt;+80&gt;:  ldr    w8, [sp, #0x8]</span><br><span class="line">    0x100bea13c &lt;+84&gt;:  add    w8, w8, #0xa              ; &#x3D;0xa </span><br><span class="line">    0x100bea140 &lt;+88&gt;:  str    w8, [sp, #0x8]</span><br><span class="line">    0x100bea144 &lt;+92&gt;:  b      0x100bea164               ; &lt;+124&gt; at main.m:63:1</span><br><span class="line">    0x100bea148 &lt;+96&gt;:  ldr    w8, [sp, #0x8]</span><br><span class="line">    0x100bea14c &lt;+100&gt;: add    w8, w8, #0x14             ; &#x3D;0x14 </span><br><span class="line">    0x100bea150 &lt;+104&gt;: str    w8, [sp, #0x8]</span><br><span class="line">    0x100bea154 &lt;+108&gt;: b      0x100bea164               ; &lt;+124&gt; at main.m:63:1</span><br><span class="line">    0x100bea158 &lt;+112&gt;: ldr    w8, [sp, #0x8]</span><br><span class="line">    0x100bea15c &lt;+116&gt;: subs   w8, w8, #0x1              ; &#x3D;0x1 </span><br><span class="line">    0x100bea160 &lt;+120&gt;: str    w8, [sp, #0x8]</span><br><span class="line">    0x100bea164 &lt;+124&gt;: add    sp, sp, #0x10             ; &#x3D;0x10 </span><br><span class="line">    0x100bea168 &lt;+128&gt;: ret</span><br></pre></td></tr></table></figure>
+
+<p>看汇编源码，其实就是简单的if-else比较，只不过这里换成了b.eq(等于)，然后跳转到对应的代码块。</p>
+<h2 id="4-2-4个case的switch"><a href="#4-2-4个case的switch" class="headerlink" title="4.2 4个case的switch"></a>4.2 4个case的switch</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">void switchFunc(int a) &#123;</span><br><span class="line">    int nsum &#x3D; 0;</span><br><span class="line">    switch (a) &#123;</span><br><span class="line">        case 1:</span><br><span class="line">            printf(&quot;1&quot;);</span><br><span class="line">            break;</span><br><span class="line">        case 2:</span><br><span class="line">            printf(&quot;2&quot;);</span><br><span class="line">            break;</span><br><span class="line">        case 3:</span><br><span class="line">            printf(&quot;3&quot;);</span><br><span class="line">            break;</span><br><span class="line">        case 4:</span><br><span class="line">            printf(&quot;4&quot;);</span><br><span class="line">            break;</span><br><span class="line">        default:</span><br><span class="line">            printf(&quot;default&quot;);</span><br><span class="line">            break;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int main(int argc, char * argv[]) &#123;</span><br><span class="line">    switchFunc(4);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们改变一下代码，再加一个case，运行一下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br></pre></td><td class="code"><pre><span class="line">Demo&#96;switchFunc:</span><br><span class="line">    0x1005460ac &lt;+0&gt;:   sub    sp, sp, #0x20             ; &#x3D;0x20 </span><br><span class="line">    0x1005460b0 &lt;+4&gt;:   stp    x29, x30, [sp, #0x10]</span><br><span class="line">    0x1005460b4 &lt;+8&gt;:   add    x29, sp, #0x10            ; &#x3D;0x10 </span><br><span class="line">    &#x2F;&#x2F; 1. 把w0的值存起来，w0 &#x3D; 4</span><br><span class="line">    0x1005460b8 &lt;+12&gt;:  stur   w0, [x29, #-0x4]</span><br><span class="line">    &#x2F;&#x2F; 2. 把0存起来</span><br><span class="line">    0x1005460bc &lt;+16&gt;:  str    wzr, [sp, #0x8]</span><br><span class="line">    &#x2F;&#x2F; 3. 取值w8 &#x3D; 4</span><br><span class="line">    0x1005460c0 &lt;+20&gt;:  ldur   w8, [x29, #-0x4]</span><br><span class="line">    &#x2F;&#x2F; 4. 这里是第一个case 1. w8 &#x3D; w8 - 1 &#x3D; 3</span><br><span class="line">    0x1005460c4 &lt;+24&gt;:  subs   w8, w8, #0x1              ; &#x3D;0x1 </span><br><span class="line">    &#x2F;&#x2F; 5. 把x8的值给x9，x9 &#x3D; 0x0000000000000003</span><br><span class="line">    0x1005460c8 &lt;+28&gt;:  mov    x9, x8</span><br><span class="line">    &#x2F;&#x2F; 6. 这个ubfx语法，往下翻有详细解释。把x9的高32位清零，x9 &#x3D; 0x0000000000000003</span><br><span class="line">    0x1005460cc &lt;+32&gt;:  ubfx   x9, x9, #0, #32</span><br><span class="line">    &#x2F;&#x2F; 7. x9的值和3进行比较</span><br><span class="line">    0x1005460d0 &lt;+36&gt;:  cmp    x9, #0x3                  ; &#x3D;0x3 </span><br><span class="line">    &#x2F;&#x2F; 8. 把x9的值放在sp对应的内存地址中</span><br><span class="line">    0x1005460d4 &lt;+40&gt;:  str    x9, [sp]</span><br><span class="line">    &#x2F;&#x2F; 9. 如果7中比较的结果是一个【无符号大于】，则执行0x100546134，其实就是执行了default操作</span><br><span class="line">-&gt;  0x1005460d8 &lt;+44&gt;:  b.hi   0x100546134               ; &lt;+136&gt; at main.m</span><br><span class="line">    &#x2F;&#x2F; 10. adrp:地址操作，x8&#x3D;0x100546000，左边的地址标号后12位清零，然后加上0x0000</span><br><span class="line">    0x1005460dc &lt;+48&gt;:  adrp   x8, 0</span><br><span class="line">    &#x2F;&#x2F; 11. x8 &#x3D; 0x10054614c，然后通过view memory，看里头的值。</span><br><span class="line">    0x1005460e0 &lt;+52&gt;:  add    x8, x8, #0x14c            ; &#x3D;0x14c </span><br><span class="line">    &#x2F;&#x2F; 12. 取值x11 &#x3D; 3</span><br><span class="line">    0x1005460e4 &lt;+56&gt;:  ldr    x11, [sp]</span><br><span class="line">    &#x2F;&#x2F; 13. ldrsw：取值，先计算中括号内部x11, lsl #2:意思是x11左移2位，</span><br><span class="line">    &#x2F;&#x2F;     然后加上x8获取一个地址，把地址里的值给x10</span><br><span class="line">    &#x2F;&#x2F; 3&lt;&lt;2 &#x3D; 二进制数3：11&lt;&lt;2 &#x3D; 1100，也就是十进制12，</span><br><span class="line">    &#x2F;&#x2F; x8+12 &#x3D; 0x10054614c+0xc &#x3D; 0x100546158</span><br><span class="line">    &#x2F;&#x2F; 这是一个寻址操作，把0x100546158地址的值给x10，</span><br><span class="line">    &#x2F;&#x2F; 通过view memory查看x10 &#x3D; 0xffffffd8 &#x3D; -40,是一个负值</span><br><span class="line">    0x1005460e8 &lt;+60&gt;:  ldrsw  x10, [x8, x11, lsl #2]</span><br><span class="line">    &#x2F;&#x2F; x9 &#x3D; 0x10054614c + (-40) &#x3D; 0x100546124</span><br><span class="line">    0x1005460ec &lt;+64&gt;:  add    x9, x8, x10</span><br><span class="line">    &#x2F;&#x2F; 执行跳转到 0x100546124</span><br><span class="line">    0x1005460f0 &lt;+68&gt;:  br     x9</span><br><span class="line">    </span><br><span class="line">    &#x2F;&#x2F; 从这里开始就是case的位置了。</span><br><span class="line">    0x1005460f4 &lt;+72&gt;:  adrp   x0, 1</span><br><span class="line">    0x1005460f8 &lt;+76&gt;:  add    x0, x0, #0xf8c            ; &#x3D;0xf8c </span><br><span class="line">    0x1005460fc &lt;+80&gt;:  bl     0x100546598               ; symbol stub for: printf</span><br><span class="line">    0x100546100 &lt;+84&gt;:  b      0x100546140               ; &lt;+148&gt; at main.m:63:1</span><br><span class="line">    0x100546104 &lt;+88&gt;:  adrp   x0, 1</span><br><span class="line">    0x100546108 &lt;+92&gt;:  add    x0, x0, #0xf8e            ; &#x3D;0xf8e </span><br><span class="line">    0x10054610c &lt;+96&gt;:  bl     0x100546598               ; symbol stub for: printf</span><br><span class="line">    0x100546110 &lt;+100&gt;: b      0x100546140               ; &lt;+148&gt; at main.m:63:1</span><br><span class="line">    0x100546114 &lt;+104&gt;: adrp   x0, 1</span><br><span class="line">    0x100546118 &lt;+108&gt;: add    x0, x0, #0xf90            ; &#x3D;0xf90 </span><br><span class="line">    0x10054611c &lt;+112&gt;: bl     0x100546598               ; symbol stub for: printf</span><br><span class="line">    0x100546120 &lt;+116&gt;: b      0x100546140               ; &lt;+148&gt; at main.m:63:1</span><br><span class="line">    &#x2F;&#x2F; 直接跳转到这里，执行adrp操作，获取x0</span><br><span class="line">    0x100546124 &lt;+120&gt;: adrp   x0, 1</span><br><span class="line">    0x100546128 &lt;+124&gt;: add    x0, x0, #0xf92            ; &#x3D;0xf92 </span><br><span class="line">    &#x2F;&#x2F; 执行printf操作。</span><br><span class="line">    0x10054612c &lt;+128&gt;: bl     0x100546598               ; symbol stub for: printf</span><br><span class="line">    0x100546130 &lt;+132&gt;: b      0x100546140               ; &lt;+148&gt; at main.m:63:1</span><br><span class="line">    0x100546134 &lt;+136&gt;: adrp   x0, 1</span><br><span class="line">    0x100546138 &lt;+140&gt;: add    x0, x0, #0xf94            ; &#x3D;0xf94 </span><br><span class="line">    0x10054613c &lt;+144&gt;: bl     0x100546598               ; symbol stub for: printf</span><br><span class="line">    0x100546140 &lt;+148&gt;: ldp    x29, x30, [sp, #0x10]</span><br><span class="line">    0x100546144 &lt;+152&gt;: add    sp, sp, #0x20             ; &#x3D;0x20 </span><br><span class="line">    0x100546148 &lt;+156&gt;: ret</span><br></pre></td></tr></table></figure>
+
+<p>发现不一样了啊，不是if-else判断了。</p>
+<p>0x10092e0e0 &lt;+24&gt;:  ubfx   x9, x9, #0, #32<br>x9寄存器是64位，w8是32位，相当于x9的低32位。<br>这里的目的就是x9从0位开始到32位清零，也就x9的高32位清零然后赋值给x9</p>
+<p><code>b.hi</code> 无符号大于</p>
+<p><code>br x9</code>：b是跳转，br是不影响lr寄存器的跳转。直接跳到x9（x9是一个地址标号）</p>
+<p><code>ldrsw  x10, [x8, x11, lsl #2]</code>： 这里先计算中括号内部。而在中括号内部先计算x11。</p>
+<ol>
+<li>lsl表示左移，<code>x11, lsl #2</code>表示x11左移2位。</li>
+<li>加上x8的值。生成一个新的地址。</li>
+<li>[]表示寻址，也就是说把生成的地址中的值给x10。</li>
+</ol>
+<p>看一下我们获取参数是否正确。看一下view memory</p>
+<p><img src="switch-viewmemory.jpg" alt=""></p>
+<p>偏移表中为什么存储的是地址的偏移量？为什么不直接存对应的地址？</p>
+<blockquote>
+<p>是因为地址只有在运行的时候才会开辟的，每次运行的值都不一样，所以直接存偏移量，然后通过偏移表的起始位置进行计算就可以直接定位了。</p>
+</blockquote>
+<h3 id="4-2-1-switch-case-偏移表"><a href="#4-2-1-switch-case-偏移表" class="headerlink" title="4.2.1 switch case 偏移表"></a>4.2.1 switch case 偏移表</h3><p>我们看第11. x8 = 0x10054614c，这个地址正好是当前汇编函数的末尾0x100546148+0x4。所以，这个函数栈空间后有一堆数据，存放一些值，这一堆数据就是case创建的偏移表。而这些值就是我们要偏移的值。</p>
+<p>偏移表中的个数是由 (case的最大值 - case的最小值) + 1。看一下上面的图<code>0x10054614c</code>的位置存放的4个值，分别是0xffffffa8=-88, 0xffffffb8=-72, 0xffffffc8=-56, 0xffffffd8=-40</p>
+<p>偏移值是一个负数，是因为是以<code>x8 = 0x10054614c</code>寄存器中存的地址为基数，偏移一个负数得到一个地址，这个地址就是在函数开辟的栈空间内。</p>
+<p>我们通过一张图重新看一下这个过程：</p>
+<p><img src="switch-2.jpg" alt=""></p>
+<h2 id="4-3-4个不连续case的switch"><a href="#4-3-4个不连续case的switch" class="headerlink" title="4.3 4个不连续case的switch"></a>4.3 4个不连续case的switch</h2><p>我们知道了，3个连续的case是if-else比较，4个连续的case就不是if-else了，而是会生成一个表。那么4个不连续的case呢？</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">void switchFunc(int a) &#123;</span><br><span class="line">    int nsum &#x3D; 0;</span><br><span class="line">    switch (a) &#123;</span><br><span class="line">        case 1:</span><br><span class="line">            printf(&quot;1&quot;);</span><br><span class="line">            break;</span><br><span class="line">        case 200:</span><br><span class="line">            printf(&quot;2&quot;);</span><br><span class="line">            break;</span><br><span class="line">        case 30:</span><br><span class="line">            printf(&quot;3&quot;);</span><br><span class="line">            break;</span><br><span class="line">        case 4:</span><br><span class="line">            printf(&quot;4&quot;);</span><br><span class="line">            break;</span><br><span class="line">        default:</span><br><span class="line">            printf(&quot;default&quot;);</span><br><span class="line">            break;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里就不在放汇编源码了，4个不连续的case，与3个case一样，也是通过if-else比较来执行代码块的。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><ol>
+<li>假设switch语句的分支比较少的时候（例如3，少于4的时候没有意义）没有必要使用此结构，相当于if。</li>
+<li>各个case分支常量的差值较大的时候，编译器会在效率还是内存进行取舍，这个时候编译器还是会编译成类似于if，else的结构。</li>
+<li>在分支比较多的时候：在编译的时候会生成一个表（跳转表每个地址四个字节）</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/ARM%E6%B1%87%E7%BC%96/" rel="tag"># ARM汇编</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/04/13/%E9%80%86%E5%90%91/ARM%E6%B1%87%E7%BC%96-2/" rel="prev" title="ARM汇编-2 函数">
+      <i class="fa fa-chevron-left"></i> ARM汇编-2 函数
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/04/17/OC%E5%8E%9F%E7%90%86/alloc-init-new/" rel="next" title="1.alloc、init、new">
+      1.alloc、init、new <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#1-状态寄存器"><span class="nav-number">1.</span> <span class="nav-text">1. 状态寄存器</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-1-N-（Negative）"><span class="nav-number">1.1.</span> <span class="nav-text">1.1 N （Negative）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-2-Z（Zero）"><span class="nav-number">1.2.</span> <span class="nav-text">1.2 Z（Zero）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-3-C（Carry）"><span class="nav-number">1.3.</span> <span class="nav-text">1.3 C（Carry）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-3-1-进位"><span class="nav-number">1.3.1.</span> <span class="nav-text">1.3.1 进位</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-3-2-借位"><span class="nav-number">1.3.2.</span> <span class="nav-text">1.3.2 借位</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-4-V（Overflow）"><span class="nav-number">1.4.</span> <span class="nav-text">1.4 V（Overflow）</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#1-5-总结"><span class="nav-number">2.</span> <span class="nav-text">1.5 总结</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#2-全局变量、常量"><span class="nav-number">3.</span> <span class="nav-text">2. 全局变量、常量</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1-汇编还原高级语言"><span class="nav-number">3.1.</span> <span class="nav-text">2.1 汇编还原高级语言</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#2-条件判断"><span class="nav-number">4.</span> <span class="nav-text">2. 条件判断</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1-cmp（Compare）比较指令"><span class="nav-number">4.1.</span> <span class="nav-text">2.1 cmp（Compare）比较指令</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#3-循环"><span class="nav-number">5.</span> <span class="nav-text">3. 循环</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#3-1-do-while"><span class="nav-number">6.</span> <span class="nav-text">3.1 do-while</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2-while"><span class="nav-number">6.1.</span> <span class="nav-text">3.2 while</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3-for"><span class="nav-number">6.2.</span> <span class="nav-text">3.3 for</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#4-switch"><span class="nav-number">7.</span> <span class="nav-text">4. switch</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1-三个case的switch"><span class="nav-number">7.1.</span> <span class="nav-text">4.1 三个case的switch</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-2-4个case的switch"><span class="nav-number">7.2.</span> <span class="nav-text">4.2 4个case的switch</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-1-switch-case-偏移表"><span class="nav-number">7.2.1.</span> <span class="nav-text">4.2.1 switch case 偏移表</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-3-4个不连续case的switch"><span class="nav-number">7.3.</span> <span class="nav-text">4.3 4个不连续case的switch</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#总结"><span class="nav-number">8.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="不会飞的小白"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">不会飞的小白</p>
+  <div class="site-description" itemprop="description">一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">29</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">15</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liujiaboy" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liujiaboy" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:alan129@163.com" title="E-Mail → mailto:alan129@163.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/u/1768698000" title="Weibo → https:&#x2F;&#x2F;weibo.com&#x2F;u&#x2F;1768698000" rel="noopener" target="_blank"><i class="fa fa-fw fa-weibo"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i></a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">不会飞的小白</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.2.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v7.7.2
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  
+  <script color='0,0,255' opacity='0.5' zIndex='-1' count='99' src="/lib/canvas-nest/canvas-nest.min.js"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

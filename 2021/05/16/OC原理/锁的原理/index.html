@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="3WOMyh0YrdEECGDv2GOACbgBEtVz_dJbyA_2G-pjr28">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liujiaboy.github.io","root":"/","scheme":"Pisces","version":"7.7.2","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="锁的分类自旋锁线程反复检查锁变量是否可用。由于线程在这一过程中保持执行，因此是一种忙等待。一旦获取了自旋锁，线程会一直保持该锁，直至显式释放自旋锁。 自旋锁避免了进程上下文的调度开销，因此对于线程只会阻塞很短时间的场合是有效的。在iOS中，声明属性，默认修饰符atomic，原子性操作自带一把自旋锁。  OSSpinLock （已经不安全，不在使用） atomic  互斥锁是一种用于多线程编程中，防">
+<meta property="og:type" content="article">
+<meta property="og:title" content="锁的原理">
+<meta property="og:url" content="http://liujiaboy.github.io/2021/05/16/OC%E5%8E%9F%E7%90%86/%E9%94%81%E7%9A%84%E5%8E%9F%E7%90%86/index.html">
+<meta property="og:site_name" content="不会飞的小白">
+<meta property="og:description" content="锁的分类自旋锁线程反复检查锁变量是否可用。由于线程在这一过程中保持执行，因此是一种忙等待。一旦获取了自旋锁，线程会一直保持该锁，直至显式释放自旋锁。 自旋锁避免了进程上下文的调度开销，因此对于线程只会阻塞很短时间的场合是有效的。在iOS中，声明属性，默认修饰符atomic，原子性操作自带一把自旋锁。  OSSpinLock （已经不安全，不在使用） atomic  互斥锁是一种用于多线程编程中，防">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://liujiaboy.github.io/2021/05/16/OC%E5%8E%9F%E7%90%86/%E9%94%81%E7%9A%84%E5%8E%9F%E7%90%86/id2data.jpg">
+<meta property="og:image" content="http://liujiaboy.github.io/2021/05/16/OC%E5%8E%9F%E7%90%86/%E9%94%81%E7%9A%84%E5%8E%9F%E7%90%86/lock_find_data.jpg">
+<meta property="article:published_time" content="2021-05-16T15:45:44.000Z">
+<meta property="article:modified_time" content="2021-05-24T02:16:11.929Z">
+<meta property="article:author" content="不会飞的小白">
+<meta property="article:tag" content="Objective-C,">
+<meta property="article:tag" content="iOS">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://liujiaboy.github.io/2021/05/16/OC%E5%8E%9F%E7%90%86/%E9%94%81%E7%9A%84%E5%8E%9F%E7%90%86/id2data.jpg">
+
+<link rel="canonical" href="http://liujiaboy.github.io/2021/05/16/OC%E5%8E%9F%E7%90%86/%E9%94%81%E7%9A%84%E5%8E%9F%E7%90%86/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true
+  };
+</script>
+
+  <title>锁的原理 | 不会飞的小白</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="不会飞的小白" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">不会飞的小白</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">Stay Hungry, Stay Foolish</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/liujiaboy" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/05/16/OC%E5%8E%9F%E7%90%86/%E9%94%81%E7%9A%84%E5%8E%9F%E7%90%86/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="不会飞的小白">
+      <meta itemprop="description" content="一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="不会飞的小白">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          锁的原理
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-05-16 23:45:44" itemprop="dateCreated datePublished" datetime="2021-05-16T23:45:44+08:00">2021-05-16</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-05-24 10:16:11" itemprop="dateModified" datetime="2021-05-24T10:16:11+08:00">2021-05-24</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/OC%E5%8E%9F%E7%90%86/" itemprop="url" rel="index"><span itemprop="name">OC原理</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="锁的分类"><a href="#锁的分类" class="headerlink" title="锁的分类"></a>锁的分类</h1><h2 id="自旋锁"><a href="#自旋锁" class="headerlink" title="自旋锁"></a>自旋锁</h2><p>线程反复检查锁变量是否可用。由于线程在这一过程中保持执行，因此是一种<code>忙等待</code>。一旦获取了自旋锁，线程会<code>一直保持该锁</code>，直至显式释放自旋锁。</p>
+<p>自旋锁避免了进程上下文的调度开销，因此对于线程只会阻塞很短时间的场合是有效的。在iOS中，声明属性，默认修饰符atomic，原子性操作自带一把自旋锁。</p>
+<ul>
+<li>OSSpinLock （已经不安全，不在使用）</li>
+<li>atomic</li>
+</ul>
+<h2 id="互斥锁"><a href="#互斥锁" class="headerlink" title="互斥锁"></a>互斥锁</h2><p>是一种用于<code>多线程</code>编程中，防止两条线程同时对<code>同一</code>公共资源(比如全局变量)进行读写的机制。该目的通过将代码切片成一个一个的临界区而达成</p>
+<p>这里属于互斥锁的有:</p>
+<ul>
+<li>NSLock</li>
+<li>NSRecursiveLock</li>
+<li>@synchronized</li>
+<li>pthread_mutex </li>
+<li>NSCondition</li>
+<li>NSCondtionLock</li>
+</ul>
+<h2 id="自旋锁与互斥锁的区别"><a href="#自旋锁与互斥锁的区别" class="headerlink" title="自旋锁与互斥锁的区别"></a>自旋锁与互斥锁的区别</h2><ol>
+<li>原理：<ol>
+<li>自旋锁：线程一直处于 加锁 - 解锁 - 忙等，消耗CPU资源较高。</li>
+<li>互斥锁：线程处于 加锁 - 解锁 - 休眠（等待被唤醒）</li>
+</ol>
+</li>
+<li>如果共享数据已有其他线程加锁：<ul>
+<li>自旋锁：死循环的方式等待，一旦被访问的资源被解锁，则立即执行。</li>
+<li>互斥锁：线程会进入休眠状态，等待解锁。</li>
+</ul>
+</li>
+<li>使用自旋锁应及时释放自旋锁，否则等待中的自旋锁会浪费CPU资源。</li>
+</ol>
+<h2 id="条件锁"><a href="#条件锁" class="headerlink" title="条件锁"></a>条件锁</h2><p>就是<code>条件变量</code>，当进程的某些资源要求不满足时就进入休眠，也就是锁住了。当资源被分配到了，条件锁打开，进程继续运行。</p>
+<ul>
+<li>NSCondition</li>
+<li>NSConditionLock</li>
+</ul>
+<h2 id="递归锁"><a href="#递归锁" class="headerlink" title="递归锁"></a>递归锁</h2><p>就是同一个线程可以加锁N次而<code>不会引发死锁</code>。递归锁是特殊的互斥锁，一种带有<code>递归性质的互斥锁</code>。</p>
+<ul>
+<li>NSRecursiveLock</li>
+<li>pthread_mutex(recursive)</li>
+</ul>
+<h2 id="信号量-semaphore"><a href="#信号量-semaphore" class="headerlink" title="信号量(semaphore)"></a>信号量(semaphore)</h2><p>是一种更高级的同步机制，互斥锁可以说是semaphore在仅取值0/1时的特例。信号量可以有更多的取值空间，用来实现更加复杂的同步，而不单单是线程间互斥。它是一个互斥锁。</p>
+<ul>
+<li>dispatch_semaphore</li>
+</ul>
+<h2 id="总结："><a href="#总结：" class="headerlink" title="总结："></a>总结：</h2><p>基本的锁包括两大类：自旋锁和互斥锁，其它锁都是在这两种的封装。</p>
+<h1 id="synchronized-底层原理"><a href="#synchronized-底层原理" class="headerlink" title="@synchronized 底层原理"></a>@synchronized 底层原理</h1><p>我们把如下代码放在<code>main.m</code>文件中执行。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">@synchronized (appDelegateClassName) &#123;</span><br><span class="line">    &#x2F;&#x2F; 进行读写操作</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们通过xcrun的命令生成main.cpp文件之后，才看文件可以到@synchronized的内部逻辑。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">id _sync_obj &#x3D; (id)appDelegateClassName;</span><br><span class="line">objc_sync_enter(_sync_obj);</span><br><span class="line">try &#123;</span><br><span class="line">    struct _SYNC_EXIT &#123; _SYNC_EXIT(id arg) : sync_exit(arg) &#123;&#125;</span><br><span class="line">        ~_SYNC_EXIT() &#123;</span><br><span class="line">            objc_sync_exit(sync_exit);</span><br><span class="line">        &#125;</span><br><span class="line">        id sync_exit;</span><br><span class="line">    &#125;</span><br><span class="line">    _sync_exit(_sync_obj);</span><br><span class="line"></span><br><span class="line">&#125; catch (id e) &#123;</span><br><span class="line">    _rethrow &#x3D; e;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里有两个操作，看着像是我们要找的重点内容<code>objc_sync_enter</code>和<code>objc_sync_exit</code>。</p>
+<p>为了以防万一，我们再汇编模式下debug一下代码。<br>在汇编模式下，同样发现了这两处代码。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">libobjc.A.dylib&#96;objc_sync_enter:</span><br><span class="line"></span><br><span class="line">libobjc.A.dylib&#96;objc_sync_exit:</span><br></pre></td></tr></table></figure>
+
+<p>并且这两处代码在libobjc.A.dylib中，这是个啥，感觉跟runtime的源码有点关系。是的，就是在runtime的源码中。接下来分析一下源码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">&#x2F;&#x2F; Begin synchronizing on &#39;obj&#39;. </span><br><span class="line">&#x2F;&#x2F; Allocates recursive mutex associated with &#39;obj&#39; if needed.</span><br><span class="line">&#x2F;&#x2F; Returns OBJC_SYNC_SUCCESS once lock is acquired.  </span><br><span class="line">int objc_sync_enter(id obj)</span><br><span class="line">&#123;</span><br><span class="line">    int result &#x3D; OBJC_SYNC_SUCCESS;</span><br><span class="line">    &#x2F;&#x2F; 1. obj有值</span><br><span class="line">    if (obj) &#123;</span><br><span class="line">        &#x2F;&#x2F; 2. 生成SyncData类型的data，这是重点，注意参数ACQUIRE</span><br><span class="line">        SyncData* data &#x3D; id2data(obj, ACQUIRE);</span><br><span class="line">        ASSERT(data);</span><br><span class="line">        &#x2F;&#x2F; 3. 加互斥锁</span><br><span class="line">        data-&gt;mutex.lock();</span><br><span class="line">    &#125; else &#123;</span><br><span class="line">        &#x2F;&#x2F; 4.</span><br><span class="line">        &#x2F;&#x2F; @synchronized(nil) does nothing</span><br><span class="line">        if (DebugNilSync) &#123;</span><br><span class="line">            _objc_inform(&quot;NIL SYNC DEBUG: @synchronized(nil); set a breakpoint on objc_sync_nil to debug&quot;);</span><br><span class="line">        &#125;</span><br><span class="line">        objc_sync_nil();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    return result;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们一步步分析源码：</p>
+<ol>
+<li>obj就是<code>@synchronized (self)</code>传进来的参数。有值的情况下会执行 2. 没有值则执行 4.</li>
+<li><code>SyncData</code>是一个结构体</li>
+<li>加锁</li>
+<li>执行<code>objc_sync_nil();</code>直接返回</li>
+</ol>
+<p>我们先看一下<code>objc_sync_exit</code>的内部结构。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; End synchronizing on &#39;obj&#39;. </span><br><span class="line">&#x2F;&#x2F; Returns OBJC_SYNC_SUCCESS or OBJC_SYNC_NOT_OWNING_THREAD_ERROR</span><br><span class="line">int objc_sync_exit(id obj)</span><br><span class="line">&#123;</span><br><span class="line">    int result &#x3D; OBJC_SYNC_SUCCESS;</span><br><span class="line">    &#x2F;&#x2F; 1. 判断是否有obj</span><br><span class="line">    if (obj) &#123;</span><br><span class="line">        &#x2F;&#x2F; 获取data，注意传的值的参数是RELEASE</span><br><span class="line">        SyncData* data &#x3D; id2data(obj, RELEASE); </span><br><span class="line">        if (!data) &#123;</span><br><span class="line">            result &#x3D; OBJC_SYNC_NOT_OWNING_THREAD_ERROR;</span><br><span class="line">        &#125; else &#123;</span><br><span class="line">            &#x2F;&#x2F; 有值的情况下，就进行解锁</span><br><span class="line">            bool okay &#x3D; data-&gt;mutex.tryUnlock();</span><br><span class="line">            if (!okay) &#123;</span><br><span class="line">                result &#x3D; OBJC_SYNC_NOT_OWNING_THREAD_ERROR;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; else &#123;</span><br><span class="line">        &#x2F;&#x2F; @synchronized(nil) does nothing</span><br><span class="line">    &#125;</span><br><span class="line">    return result;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们发现<code>objc_sync_exit</code>和<code>objc_sync_enter</code>的内部大同小异。主要的内容都是在<code>id2data</code>函数内部。</p>
+<p>接下来，我们重点看一下这个函数：</p>
+<p><img src="id2data.jpg" alt=""></p>
+<p>这个函数太大了，先把一些代码逻辑隐藏掉了，接着一步一步分析：</p>
+<h2 id="SyncData-链表"><a href="#SyncData-链表" class="headerlink" title="SyncData 链表"></a>SyncData 链表</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">typedef struct alignas(CacheLineSize) SyncData &#123;</span><br><span class="line">    struct SyncData* nextData;  &#x2F;&#x2F; 指向下一个值，</span><br><span class="line">    DisguisedPtr&lt;objc_object&gt; object;</span><br><span class="line">    int32_t threadCount;  &#x2F;&#x2F; number of THREADS using this block</span><br><span class="line">    recursive_mutex_t mutex;</span><br><span class="line">&#125; SyncData;</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li><code>nextData</code>指向下一个值，类似与链表结构。</li>
+<li>object：hash map的关联对象，就是<code>@synchronized (self)</code>中self这个参数。</li>
+<li>threadCount：有多少个线程执行了这个block</li>
+<li>mutex：这是一个递归锁，递归锁是互斥锁的一种</li>
+</ol>
+<h2 id="SyncList"><a href="#SyncList" class="headerlink" title="SyncList"></a>SyncList</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">spinlock_t *lockp &#x3D; &amp;LOCK_FOR_OBJ(object);</span><br><span class="line">SyncData **listp &#x3D; &amp;LIST_FOR_OBJ(object);</span><br></pre></td></tr></table></figure>
+
+<p>首先出现的就是spinlock_t类型的锁，这是一个自旋锁，通过<code>LOCK_FOR_OBJ(object)</code>来获取。<br><code>SyncData指针类型</code>的数据，通过LIST_FOR_OBJ获取。都是通过<code>SyncList</code>获取的</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">struct SyncList &#123;</span><br><span class="line">    SyncData *data;</span><br><span class="line">    spinlock_t lock;</span><br><span class="line"></span><br><span class="line">    constexpr SyncList() : data(nil), lock(fork_unsafe_lock) &#123; &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; Use multiple parallel lists to decrease contention among unrelated objects.</span><br><span class="line">#define LOCK_FOR_OBJ(obj) sDataLists[obj].lock</span><br><span class="line">#define LIST_FOR_OBJ(obj) sDataLists[obj].data</span><br><span class="line">static StripedMap&lt;SyncList&gt; sDataLists;</span><br></pre></td></tr></table></figure>
+
+<p><code>SyncList</code>是一个结构体类型，内部有一个链表，<code>spinlock_t</code>是一个自旋锁。它存放的是一个总表。</p>
+<p><code>tls</code>：是一个线程缓存的表，通过set和get方法获取对应key的值。</p>
+<ul>
+<li>SYNC_DATA_DIRECT_KEY： 数据data对应的key</li>
+<li>SYNC_COUNT_DIRECT_KEY：锁的个数对应的key</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">typedef struct SyncCache &#123;</span><br><span class="line">    unsigned int allocated;</span><br><span class="line">    unsigned int used;</span><br><span class="line">    SyncCacheItem list[0];</span><br><span class="line">&#125; SyncCache;</span><br><span class="line"></span><br><span class="line">typedef struct &#123;</span><br><span class="line">    SyncData *data;</span><br><span class="line">    unsigned int lockCount;  &#x2F;&#x2F; number of times THIS THREAD locked this block</span><br><span class="line">&#125; SyncCacheItem;</span><br></pre></td></tr></table></figure>
+
+<p><code>SyncCache</code>也是一个结构体，主要作用是存储线程，内部有一个list数组，存储不同的线程。<code>list[0]</code>存放的是当前线程的SyncData链表。</p>
+<h2 id="第一步-有data"><a href="#第一步-有data" class="headerlink" title="第一步 有data"></a>第一步 有data</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; Check per-thread single-entry fast cache for matching object</span><br><span class="line">bool fastCacheOccupied &#x3D; NO;</span><br><span class="line">&#x2F;&#x2F; 1. 通过get方法，从tls缓存表中获取data</span><br><span class="line">SyncData *data &#x3D; (SyncData *)tls_get_direct(SYNC_DATA_DIRECT_KEY);</span><br><span class="line">if (data) &#123;</span><br><span class="line">    &#x2F;&#x2F; 快速缓存查找 为YES</span><br><span class="line">    fastCacheOccupied &#x3D; YES;</span><br><span class="line">    &#x2F;&#x2F; 如果缓存中获取的data-&gt;object等于@synchronized(object)，说明之前有使用过object</span><br><span class="line">    if (data-&gt;object &#x3D;&#x3D; object) &#123;</span><br><span class="line">        &#x2F;&#x2F; Found a match in fast cache.</span><br><span class="line">        &#x2F;&#x2F; 有几个锁，也就是有几次执行synchronized</span><br><span class="line">        uintptr_t lockCount;    </span><br><span class="line"></span><br><span class="line">        result &#x3D; data;</span><br><span class="line">        &#x2F;&#x2F; 在快速缓存中</span><br><span class="line">        lockCount &#x3D; (uintptr_t)tls_get_direct(SYNC_COUNT_DIRECT_KEY);</span><br><span class="line">        &#x2F;&#x2F; 表中中data，但是对应的线程数和锁的个数都小于0，说明获取的data有问题</span><br><span class="line">        if (result-&gt;threadCount &lt;&#x3D; 0  ||  lockCount &lt;&#x3D; 0) &#123;</span><br><span class="line">            _objc_fatal(&quot;id2data fastcache is buggy&quot;);</span><br><span class="line">        &#125;</span><br><span class="line">        &#x2F;&#x2F; 还记得上层方法enter、exit调用这个方法传的参数吗？</span><br><span class="line">        switch(why) &#123;</span><br><span class="line">        case ACQUIRE: &#123;</span><br><span class="line">            &#x2F;&#x2F; enter -- 锁的个数+1</span><br><span class="line">            lockCount++;</span><br><span class="line">            &#x2F;&#x2F; 然后通过set方法存的tls表中</span><br><span class="line">            tls_set_direct(SYNC_COUNT_DIRECT_KEY, (void*)lockCount);</span><br><span class="line">            break;</span><br><span class="line">        &#125;</span><br><span class="line">        case RELEASE:</span><br><span class="line">            &#x2F;&#x2F; exit -- 锁的个数-1</span><br><span class="line">            lockCount--;</span><br><span class="line">            &#x2F;&#x2F; 存放到tls表中</span><br><span class="line">            tls_set_direct(SYNC_COUNT_DIRECT_KEY, (void*)lockCount);</span><br><span class="line">            if (lockCount &#x3D;&#x3D; 0) &#123;</span><br><span class="line">                &#x2F;&#x2F; 锁的个数等于 0 ，直接从表中移除</span><br><span class="line">                &#x2F;&#x2F; remove from fast cache</span><br><span class="line">                tls_set_direct(SYNC_DATA_DIRECT_KEY, NULL);</span><br><span class="line">                &#x2F;&#x2F; atomic because may collide with concurrent ACQUIRE</span><br><span class="line">                OSAtomicDecrement32Barrier(&amp;result-&gt;threadCount);</span><br><span class="line">            &#125;</span><br><span class="line">            break;</span><br><span class="line">        case CHECK:</span><br><span class="line">            &#x2F;&#x2F; do nothing</span><br><span class="line">            break;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        return result;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="第二步-cache"><a href="#第二步-cache" class="headerlink" title="第二步 cache"></a>第二步 cache</h2><p>SyncCache还有印象吗？内部list[0]存放的是当前的SyncData</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; Check per-thread cache of already-owned locks for matching object</span><br><span class="line">&#x2F;&#x2F; 从线程的缓存池里捞数据，先看看这个函数，</span><br><span class="line">SyncCache *cache &#x3D; fetch_cache(NO);</span><br><span class="line">if (cache) &#123;</span><br><span class="line">    unsigned int i;</span><br><span class="line">    for (i &#x3D; 0; i &lt; cache-&gt;used; i++) &#123;</span><br><span class="line">        &#x2F;&#x2F; list存放的是SyncCacheItem的数组，判断每一个item中对应的object是不是我们使用@synchronized传的参数。</span><br><span class="line">        SyncCacheItem *item &#x3D; &amp;cache-&gt;list[i];</span><br><span class="line">        if (item-&gt;data-&gt;object !&#x3D; object) continue;</span><br><span class="line"></span><br><span class="line">        &#x2F;&#x2F; Found a match. 恰好在线程的缓存池中找到了</span><br><span class="line">        result &#x3D; item-&gt;data;</span><br><span class="line">        &#x2F;&#x2F; 判断错误</span><br><span class="line">        if (result-&gt;threadCount &lt;&#x3D; 0  ||  item-&gt;lockCount &lt;&#x3D; 0) &#123;</span><br><span class="line">            _objc_fatal(&quot;id2data cache is buggy&quot;);</span><br><span class="line">        &#125;</span><br><span class="line">        &#x2F;&#x2F; 这是直接在线程池中的数据做的操作</span><br><span class="line">        switch(why) &#123;</span><br><span class="line">        case ACQUIRE:</span><br><span class="line">            item-&gt;lockCount++;</span><br><span class="line">            break;</span><br><span class="line">        case RELEASE:</span><br><span class="line">            item-&gt;lockCount--;</span><br><span class="line">            if (item-&gt;lockCount &#x3D;&#x3D; 0) &#123;</span><br><span class="line">                &#x2F;&#x2F; remove from per-thread cache</span><br><span class="line">                &#x2F;&#x2F; 直接从线程池中移除</span><br><span class="line">                cache-&gt;list[i] &#x3D; cache-&gt;list[--cache-&gt;used];</span><br><span class="line">                &#x2F;&#x2F; atomic because may collide with concurrent ACQUIRE</span><br><span class="line">                OSAtomicDecrement32Barrier(&amp;result-&gt;threadCount);</span><br><span class="line">            &#125;</span><br><span class="line">            break;</span><br><span class="line">        case CHECK:</span><br><span class="line">            &#x2F;&#x2F; do nothing</span><br><span class="line">            break;</span><br><span class="line">        &#125;</span><br><span class="line">        &#x2F;&#x2F; 找到了就返回</span><br><span class="line">        return result;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="fetch-cache-函数"><a href="#fetch-cache-函数" class="headerlink" title="fetch_cache 函数"></a>fetch_cache 函数</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">static SyncCache *fetch_cache(bool create)</span><br><span class="line">&#123;</span><br><span class="line">    _objc_pthread_data *data;</span><br><span class="line">    </span><br><span class="line">    &#x2F;&#x2F; 这个函数有解释，而且一目了然，没有从线程缓存池中拿到数据，并且参数create&#x3D;&#x3D;NO，然后null，如果参数是YES，则创建一个。所以这里没有找到的话返回的是null，这个函数的主要作用就是获取cache</span><br><span class="line">    data &#x3D; _objc_fetch_pthread_data(create);</span><br><span class="line">    if (!data) return NULL;</span><br><span class="line"></span><br><span class="line">    if (!data-&gt;syncCache) &#123;</span><br><span class="line">        if (!create) &#123;</span><br><span class="line">            return NULL;</span><br><span class="line">        &#125; else &#123;</span><br><span class="line">            int count &#x3D; 4;</span><br><span class="line">            data-&gt;syncCache &#x3D; (SyncCache *)</span><br><span class="line">                calloc(1, sizeof(SyncCache) + count*sizeof(SyncCacheItem));</span><br><span class="line">            data-&gt;syncCache-&gt;allocated &#x3D; count;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    &#x2F;&#x2F; Make sure there&#39;s at least one open slot in the list.</span><br><span class="line">    if (data-&gt;syncCache-&gt;allocated &#x3D;&#x3D; data-&gt;syncCache-&gt;used) &#123;</span><br><span class="line">        data-&gt;syncCache-&gt;allocated *&#x3D; 2;</span><br><span class="line">        data-&gt;syncCache &#x3D; (SyncCache *)</span><br><span class="line">            realloc(data-&gt;syncCache, sizeof(SyncCache) </span><br><span class="line">                    + data-&gt;syncCache-&gt;allocated * sizeof(SyncCacheItem));</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    return data-&gt;syncCache;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们先看一下<code>_objc_fetch_pthread_data</code>，这个方法已经说的很清楚了，有注释，代码都不用看。</p>
+<p>其主要目的是从tls表中获取通过key获取<code>_objc_pthread_data</code>（结构体），内部有一个<code>SyncCache</code>，我们的最终目的也就是通过这个<code>SyncCache</code>中的list获取我们<code>@synchronized(object)</code>中object对应的数据。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;***********************************************************************</span><br><span class="line">* _objc_fetch_pthread_data</span><br><span class="line">* Fetch objc&#39;s pthread data for this thread.</span><br><span class="line">* If the data doesn&#39;t exist yet and create is NO, return NULL.</span><br><span class="line">* If the data doesn&#39;t exist yet and create is YES, allocate and return it.</span><br><span class="line">**********************************************************************&#x2F;</span><br><span class="line">_objc_pthread_data *_objc_fetch_pthread_data(bool create)</span><br><span class="line">&#123;</span><br><span class="line">    _objc_pthread_data *data;</span><br><span class="line"></span><br><span class="line">    data &#x3D; (_objc_pthread_data *)tls_get(_objc_pthread_key);</span><br><span class="line">    if (!data  &amp;&amp;  create) &#123;</span><br><span class="line">        data &#x3D; (_objc_pthread_data *)</span><br><span class="line">            calloc(1, sizeof(_objc_pthread_data));</span><br><span class="line">        tls_set(_objc_pthread_key, data);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    return data;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="第三步"><a href="#第三步" class="headerlink" title="第三步"></a>第三步</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 首先执行的就上锁，这是一个自旋锁</span><br><span class="line">lockp-&gt;lock();</span><br><span class="line"></span><br><span class="line">&#123;</span><br><span class="line">    SyncData* p;</span><br><span class="line">    SyncData* firstUnused &#x3D; NULL;</span><br><span class="line">    &#x2F;&#x2F; 执行for循环，这里的目的就是一直在遍历SyncData这个链表，看其中是否有数据</span><br><span class="line">    for (p &#x3D; *listp; p !&#x3D; NULL; p &#x3D; p-&gt;nextData) &#123;</span><br><span class="line">        &#x2F;&#x2F; 有数据，正好是我们用的那个。直接执行done语句</span><br><span class="line">        if ( p-&gt;object &#x3D;&#x3D; object ) &#123;</span><br><span class="line">            result &#x3D; p;</span><br><span class="line">            &#x2F;&#x2F; atomic because may collide with concurrent RELEASE</span><br><span class="line">            OSAtomicIncrement32Barrier(&amp;result-&gt;threadCount);</span><br><span class="line">            goto done;</span><br><span class="line">        &#125;</span><br><span class="line">        &#x2F;&#x2F; 没有发现，则直接赋值</span><br><span class="line">        if ( (firstUnused &#x3D;&#x3D; NULL) &amp;&amp; (p-&gt;threadCount &#x3D;&#x3D; 0) )</span><br><span class="line">            firstUnused &#x3D; p;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    &#x2F;&#x2F; no SyncData currently associated with object</span><br><span class="line">    if ( (why &#x3D;&#x3D; RELEASE) || (why &#x3D;&#x3D; CHECK) )</span><br><span class="line">        goto done;</span><br><span class="line">    </span><br><span class="line">    &#x2F;&#x2F; an unused one was found, use it</span><br><span class="line">    if ( firstUnused !&#x3D; NULL ) &#123;</span><br><span class="line">        &#x2F;&#x2F; for循环中捞到的值赋给result</span><br><span class="line">        result &#x3D; firstUnused;</span><br><span class="line">        &#x2F;&#x2F; object指向@synchronized的参数</span><br><span class="line">        result-&gt;object &#x3D; (objc_object *)object;</span><br><span class="line">        &#x2F;&#x2F; 线程数是1</span><br><span class="line">        result-&gt;threadCount &#x3D; 1;</span><br><span class="line">        goto done;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 上面的流程也没有得到数据，哪就自己创建一个，并且加到线程池中。</span><br><span class="line">posix_memalign((void **)&amp;result, alignof(SyncData), sizeof(SyncData));</span><br><span class="line">result-&gt;object &#x3D; (objc_object *)object;</span><br><span class="line">result-&gt;threadCount &#x3D; 1;</span><br><span class="line">new (&amp;result-&gt;mutex) recursive_mutex_t(fork_unsafe_lock);</span><br><span class="line">result-&gt;nextData &#x3D; *listp;</span><br><span class="line">*listp &#x3D; result;</span><br></pre></td></tr></table></figure>
+
+<p>我们接下来看done的操作。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">done:</span><br><span class="line">    &#x2F;&#x2F; 自旋锁解锁， 这个锁只在第三步有使用。因为这是一个耗时操作</span><br><span class="line">    lockp-&gt;unlock();</span><br><span class="line">    if (result) &#123;</span><br><span class="line">        &#x2F;&#x2F; Only new ACQUIRE should get here.</span><br><span class="line">        &#x2F;&#x2F; All RELEASE and CHECK and recursive ACQUIRE are </span><br><span class="line">        &#x2F;&#x2F; handled by the per-thread caches above.</span><br><span class="line">        if (why &#x3D;&#x3D; RELEASE) &#123;</span><br><span class="line">            &#x2F;&#x2F; 啥都没有呢，就释放，返回nil</span><br><span class="line">            &#x2F;&#x2F; Probably some thread is incorrectly exiting </span><br><span class="line">            &#x2F;&#x2F; while the object is held by another thread.</span><br><span class="line">            return nil;</span><br><span class="line">        &#125;</span><br><span class="line">        &#x2F;&#x2F; 错误判断</span><br><span class="line">        if (why !&#x3D; ACQUIRE) _objc_fatal(&quot;id2data is buggy&quot;);</span><br><span class="line">        if (result-&gt;object !&#x3D; object) _objc_fatal(&quot;id2data is buggy&quot;);</span><br><span class="line"></span><br><span class="line">#if SUPPORT_DIRECT_THREAD_KEYS</span><br><span class="line">        &#x2F;&#x2F; 走了第一步就会变成YES。</span><br><span class="line">        if (!fastCacheOccupied) &#123;</span><br><span class="line">            &#x2F;&#x2F; Save in fast thread cache</span><br><span class="line">            &#x2F;&#x2F; 把SyncData、lockCount&#x3D;1锁的个数存到tls表中，快速查找的表</span><br><span class="line">            tls_set_direct(SYNC_DATA_DIRECT_KEY, result);</span><br><span class="line">            tls_set_direct(SYNC_COUNT_DIRECT_KEY, (void*)1);</span><br><span class="line">        &#125; else </span><br><span class="line">#endif</span><br><span class="line">        &#123;</span><br><span class="line">            &#x2F;&#x2F; Save in thread cache</span><br><span class="line">            &#x2F;&#x2F; 存到线程池的表中</span><br><span class="line">            if (!cache) cache &#x3D; fetch_cache(YES);</span><br><span class="line">            cache-&gt;list[cache-&gt;used].data &#x3D; result;</span><br><span class="line">            cache-&gt;list[cache-&gt;used].lockCount &#x3D; 1;</span><br><span class="line">            cache-&gt;used++;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    &#x2F;&#x2F; 返回结果。</span><br><span class="line">    return result;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="lock_find_data.jpg" alt=""></p>
+<p>图上，左边就是线程list，每一个线程有一个链表。 先从当前的链表中查找，如果找到直接处理。没有找到则从线程中找到对应的链表再处理。</p>
+<p>所以性能是最差的，内部有两个锁，一个自旋锁，一个递归锁，再加上快速查找，线程池缓存查找，等一系列操作，十分消耗性能，但是还是使用非常广泛，就是因为使用简单，不用自己加锁、解锁。</p>
+<p>再看另外一个例子：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">for (int i &#x3D; 0; i &lt; 100000; i ++) &#123;</span><br><span class="line">    dispatch_async(dispatch_get_global_queue(0, 0), ^&#123;</span><br><span class="line">        self.mArray &#x3D; [NSMutableArray array];</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>运行上面的代码，是否会发生crash？</p>
+<p>会发生crash，就是因为点属性是一个set方法，在set方法内部，会对旧值relase，新值retain，在某一个节点，就有可能release的次数过多，造成重复释放，发生了野指针，就发生了crash。</p>
+<p>最简单的做法就是使用<code>@synchronized(self)</code>，那能不能锁<code>@synchronized(_mArray)</code>呢？</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">@synchronized (self) &#123;</span><br><span class="line">    self.mArray &#x3D; [NSMutableArray array];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>答案是不能，因为在运行的过程中，_mArray会有等于nil的情况，那还能锁住啥？</p>
+<p><code>@synchronized (self)</code>锁的对象一定要有声明周期，是可以释放的，并且block中执行的变量最好与锁住的对象有关系，两人存在声明周期上的关联。</p>
+<p>但是也不要乱用self，当在不同线程执行不同的block时，<code>@synchronized</code>的查找会更加耗时，因为链表的查找需要从头开始找。这个时候就需要使用其他的锁来处理了。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><ul>
+<li><p>锁的分类</p>
+<ol>
+<li>自旋锁 ：atomic</li>
+<li>互斥锁 ：@synchronized，NSLock，pthread</li>
+<li>条件锁 ：NSCondition，NSConditionLock</li>
+<li>递归锁 ：NSRecursiveLock</li>
+<li>信号量 ：dispatch_semaphore</li>
+<li>主要分为两大类：自旋锁、互斥锁</li>
+</ol>
+</li>
+<li><p>@synchronized底层原理</p>
+<ol>
+<li>通过objc_sync_enter加锁</li>
+<li>通过objc_sync_exit解锁</li>
+<li>内部有一个自旋锁、一个递归锁。自旋锁用于hash表中的查找，查找线程池。递归锁用于锁住的对象的操作。</li>
+<li>查找分为3个步奏：<ol>
+<li>通过当前链表查找，找到了直接返回</li>
+<li>当前链表没有则通过线程池缓存查找，</li>
+<li>在hash表中查找</li>
+<li>锁住的对象最好与block执行的变量有关联关系，不要乱用self</li>
+</ol>
+</li>
+</ol>
+</li>
+</ul>
+<h1 id="引用"><a href="#引用" class="headerlink" title="引用"></a>引用</h1><p><a href="https://opensource.apple.com/tarballs/objc4/" target="_blank" rel="noopener">objc源码</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Objective-C/" rel="tag"># Objective-C,</a>
+              <a href="/tags/iOS/" rel="tag"># iOS</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/05/16/OC%E5%8E%9F%E7%90%86/GCD-3/" rel="prev" title="GCD底层原理-3">
+      <i class="fa fa-chevron-left"></i> GCD底层原理-3
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/05/19/OC%E5%8E%9F%E7%90%86/%E9%94%81%E7%9A%84%E5%8E%9F%E7%90%86-2/" rel="next" title="锁的原理-2">
+      锁的原理-2 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#锁的分类"><span class="nav-number">1.</span> <span class="nav-text">锁的分类</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#自旋锁"><span class="nav-number">1.1.</span> <span class="nav-text">自旋锁</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#互斥锁"><span class="nav-number">1.2.</span> <span class="nav-text">互斥锁</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#自旋锁与互斥锁的区别"><span class="nav-number">1.3.</span> <span class="nav-text">自旋锁与互斥锁的区别</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#条件锁"><span class="nav-number">1.4.</span> <span class="nav-text">条件锁</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#递归锁"><span class="nav-number">1.5.</span> <span class="nav-text">递归锁</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#信号量-semaphore"><span class="nav-number">1.6.</span> <span class="nav-text">信号量(semaphore)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结："><span class="nav-number">1.7.</span> <span class="nav-text">总结：</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#synchronized-底层原理"><span class="nav-number">2.</span> <span class="nav-text">@synchronized 底层原理</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#SyncData-链表"><span class="nav-number">2.1.</span> <span class="nav-text">SyncData 链表</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SyncList"><span class="nav-number">2.2.</span> <span class="nav-text">SyncList</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#第一步-有data"><span class="nav-number">2.3.</span> <span class="nav-text">第一步 有data</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#第二步-cache"><span class="nav-number">2.4.</span> <span class="nav-text">第二步 cache</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#fetch-cache-函数"><span class="nav-number">2.4.1.</span> <span class="nav-text">fetch_cache 函数</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#第三步"><span class="nav-number">2.5.</span> <span class="nav-text">第三步</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#总结"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#引用"><span class="nav-number">4.</span> <span class="nav-text">引用</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="不会飞的小白"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">不会飞的小白</p>
+  <div class="site-description" itemprop="description">一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">29</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">15</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liujiaboy" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liujiaboy" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:alan129@163.com" title="E-Mail → mailto:alan129@163.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/u/1768698000" title="Weibo → https:&#x2F;&#x2F;weibo.com&#x2F;u&#x2F;1768698000" rel="noopener" target="_blank"><i class="fa fa-fw fa-weibo"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i></a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">不会飞的小白</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.2.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v7.7.2
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  
+  <script color='0,0,255' opacity='0.5' zIndex='-1' count='99' src="/lib/canvas-nest/canvas-nest.min.js"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

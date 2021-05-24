@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="3WOMyh0YrdEECGDv2GOACbgBEtVz_dJbyA_2G-pjr28">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liujiaboy.github.io","root":"/","scheme":"Pisces","version":"7.7.2","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="应用重签名codesign 命令Xcode提供了签名工具codesign，我们可以通过几个命令iu可以完成重签名。  codesign -vv -d [WeChat.app] 查看签名 $ security find-identity -v -p codesigning 查看钥匙串力可以签名的证书 $ Codesign –fs [证书串] [filename] 强制替换签名 $ Chmod +x">
+<meta property="og:type" content="article">
+<meta property="og:title" content="应用重签名">
+<meta property="og:url" content="http://liujiaboy.github.io/2021/05/21/%E9%80%86%E5%90%91/%E5%BA%94%E7%94%A8%E9%87%8D%E7%AD%BE%E5%90%8D/index.html">
+<meta property="og:site_name" content="不会飞的小白">
+<meta property="og:description" content="应用重签名codesign 命令Xcode提供了签名工具codesign，我们可以通过几个命令iu可以完成重签名。  codesign -vv -d [WeChat.app] 查看签名 $ security find-identity -v -p codesigning 查看钥匙串力可以签名的证书 $ Codesign –fs [证书串] [filename] 强制替换签名 $ Chmod +x">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-05-21T07:42:58.000Z">
+<meta property="article:modified_time" content="2021-05-24T02:16:11.930Z">
+<meta property="article:author" content="不会飞的小白">
+<meta property="article:tag" content="应用签名">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://liujiaboy.github.io/2021/05/21/%E9%80%86%E5%90%91/%E5%BA%94%E7%94%A8%E9%87%8D%E7%AD%BE%E5%90%8D/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true
+  };
+</script>
+
+  <title>应用重签名 | 不会飞的小白</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="不会飞的小白" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">不会飞的小白</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">Stay Hungry, Stay Foolish</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/liujiaboy" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/05/21/%E9%80%86%E5%90%91/%E5%BA%94%E7%94%A8%E9%87%8D%E7%AD%BE%E5%90%8D/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="不会飞的小白">
+      <meta itemprop="description" content="一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="不会飞的小白">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          应用重签名
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-05-21 15:42:58" itemprop="dateCreated datePublished" datetime="2021-05-21T15:42:58+08:00">2021-05-21</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-05-24 10:16:11" itemprop="dateModified" datetime="2021-05-24T10:16:11+08:00">2021-05-24</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E9%80%86%E5%90%91/" itemprop="url" rel="index"><span itemprop="name">逆向</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="应用重签名"><a href="#应用重签名" class="headerlink" title="应用重签名"></a>应用重签名</h1><h2 id="codesign-命令"><a href="#codesign-命令" class="headerlink" title="codesign 命令"></a>codesign 命令</h2><p>Xcode提供了签名工具<code>codesign</code>，我们可以通过几个命令iu可以完成重签名。</p>
+<ul>
+<li><code>codesign -vv -d [WeChat.app]</code> 查看签名</li>
+<li><code>$ security find-identity -v -p codesigning</code> 查看钥匙串力可以签名的证书</li>
+<li><code>$ Codesign –fs [证书串] [filename]</code> 强制替换签名</li>
+<li><code>$ Chmod +x [filename]</code> 给文件添加可执行权限权限</li>
+<li><code>$ security cms -D -i ../embedded.mobileprovision</code> 查看描述文件</li>
+<li><code>$ codesign -fs [证书串] --no-strict --entitlements=权限文件.plist APP包</code></li>
+<li><code>$ Zip –ry [file] [outfile] 将file压缩为outfile</code></li>
+<li><code>$ otool -l [WeChat]</code> 查看mach-O(可执行)文件， <code>cryptid</code>等于0说明是砸壳之后的（没有加密），等于1说明是加密的</li>
+<li><code>$ otool -l WeChat &gt; ~/Desktop/123.txt</code> 把文件导出到123.txt中</li>
+</ul>
+<h2 id="codesign-签名步奏"><a href="#codesign-签名步奏" class="headerlink" title="codesign 签名步奏"></a>codesign 签名步奏</h2><p>首先我们需要拿到砸壳之后的<code>.ipa</code>文件，然后对这个文件解压缩，在<code>Payload</code>文件夹下看到对应的app文件。</p>
+<h3 id="查看签名"><a href="#查看签名" class="headerlink" title="查看签名"></a>查看签名</h3><p> <code>$ codesign -vv -d WeChat.app</code> </p>
+<p> 如果没有重签名，使用的证书还是微信自己的证书。</p>
+<h3 id="查看本地钥匙串中可用的证书"><a href="#查看本地钥匙串中可用的证书" class="headerlink" title="查看本地钥匙串中可用的证书"></a>查看本地钥匙串中可用的证书</h3><p> <code>$ security find-identity -v -p codesigning</code></p>
+<p> 会列出钥匙串中可用的证书。</p>
+<h3 id="强制签名"><a href="#强制签名" class="headerlink" title="强制签名"></a>强制签名</h3><p>选中<code>WeChat.app</code>，显示包内容</p>
+<p>app包中主要有3个文件需要处理，我们需要对这3个文件做重签名：</p>
+<ol>
+<li>是资源文件的签名</li>
+<li>Mach-O文件的签名</li>
+<li>Framework的签名</li>
+</ol>
+<p>但是内部的<code>PlugIns</code>文件夹中的插件，<code>watch</code>文件夹下的内容，使用免费的证书是无法签名的。可以删除掉。</p>
+<p>然后我们先对Framework文件夹下的内容签名：</p>
+<p><code>$ codesign -fs &quot;Apple Development: xxx&quot; andromeda.framework</code></p>
+<p>所有的framework都要重签。</p>
+<h3 id="创建新的描述文件"><a href="#创建新的描述文件" class="headerlink" title="创建新的描述文件"></a>创建新的描述文件</h3><ol>
+<li>Xcode新建工程，命名为<code>WeChat</code>,选择对framework重签名使用的证书。然后在手机上运行一下。</li>
+<li>在工程中选中<code>Products</code>,打开<code>WeChat.app</code>所在的文件夹。然后显示包内容，找到<code>embedded.mobileprovision</code>这个描述文件，复制到<code>WeChat.app</code>内。</li>
+<li>添加了描述文件之后，还需要修改<code>info.plist</code>的bundle id，因为描述文件中是有bundle id信息的。</li>
+</ol>
+<h3 id="更改权限"><a href="#更改权限" class="headerlink" title="更改权限"></a>更改权限</h3><p>接下来我们看看<code>embedded.mobileprovision</code>的内容，因为我们需要拿到它的权限部分对<code>WeChat</code>重签名。</p>
+<ol>
+<li><code>$ security cms -D -i embedded.mobileprovision</code>查看<code>embedded.mobileprovision</code>的内容，找到<code>Entitlements</code>这个key对应的内容（注意拷贝时不需要key），复制到一个新的plist文件中，命名为<code>Entitlements</code>。</li>
+<li>然后把这个<code>Entitlements.plist</code>文件拷贝到<code>Payload</code>文件夹下，与<code>WeChat.app</code>同级。</li>
+<li><code>$ ls -l WeChat</code>查看Mach-O文件是否有可以执行权限，没有的话使用命令<code>$ chmod a+x WeChat</code>设置可执行权限。</li>
+</ol>
+<h3 id="app重签"><a href="#app重签" class="headerlink" title="app重签"></a>app重签</h3><p>对APP重签，其实就是对内部Mach-O重签。<br>退回到<code>Payload</code>文件夹下，对<code>WeChat.app</code>签名：</p>
+<p><code>$ codesign -fs &quot;Apple Development: xxx&quot; --no-strict --entitlements=Entitlements.plist WeChat.app</code></p>
+<h3 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h3><p>使用Xcode - Window - Devices and Simulators，点击”+“，选择对应的app安装，安装完成之后，点击就能直接运行了。</p>
+<blockquote>
+<p>注意：别登录，容易被封号，我们只是完成了万里长征的第一步而已。</p>
+</blockquote>
+<p>这就是通过命令行使用<code>codesign</code>进行重签名的流程。</p>
+<h1 id="Xcode重签名"><a href="#Xcode重签名" class="headerlink" title="Xcode重签名"></a>Xcode重签名</h1><p>我们对拿到的砸壳之后ipa文件进行解压缩，打开<code>Payload</code>文件夹：</p>
+<ol>
+<li>删除<code>PlugIns</code>、<code>Waatch</code>文件夹。</li>
+<li>使用命令行对Framework重签名。</li>
+<li>创建并运行一个空项目工程，项目名字需要与重签的<code>xx.app</code>文件名一致。并运行到手机上。</li>
+<li>修改xx.app内部的info.plist文件下的bundle id，与新工程一致。</li>
+<li>在工程下选择<code>Products</code>，打开<code>xx.app</code>所在的文件夹，把第4步修改后的app复制过来，直接替换<code>xx.app</code>。</li>
+<li>直接运行。</li>
+</ol>
+<h1 id="codesign-与-Xcode签名比较"><a href="#codesign-与-Xcode签名比较" class="headerlink" title="codesign 与 Xcode签名比较"></a>codesign 与 Xcode签名比较</h1><p>与<code>codesign</code>签名相比，直接使用Xcode重签名少了好几步：</p>
+<ol>
+<li>省略了添加描述文件</li>
+<li>省略了添加描述文件的权限</li>
+<li>省略了通过权限重签app</li>
+</ol>
+<h1 id="Shell-重签"><a href="#Shell-重签" class="headerlink" title="Shell 重签"></a>Shell 重签</h1><p>shell是一种特殊的交互式工具，它为用户提供了启动程序、管理文件系统中文件以及运行在系统上的进程的途径。<br>Shell一般是指命令行工具。它允许你输入文本命令，然后解释命令，并在内核中执行。<br>Shell脚本，也就是用各类命令预先放入到一个文本文件中，方便一次性执行的一个脚本文件。</p>
+<blockquote>
+<p>iTerm 切换bash和zsh的<br><code>$ chsh -s /bin/bash</code><br><code>$ chsh -s /bin/zsh</code></p>
+</blockquote>
+<h2 id="文件类型与权限"><a href="#文件类型与权限" class="headerlink" title="文件类型与权限"></a>文件类型与权限</h2><p>可以通过<code>$ls -l</code>命令查看权限</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">drwxr-xr-x  5  Alan  staff      160    10 19 2015  Public</span><br><span class="line">[文件权限]  连接 所有者 所属组     文件大小  最后修改时间 文件名称</span><br></pre></td></tr></table></figure>
+
+<p>d：文件类型 表示目录。-表示 文件<br>前3位 rwx：文件所有者（user）的权限<br>中3位 r-x：这一组其他用户（group）的权限<br>后3为 r-x：非本组的用户（other）的权限，</p>
+<table>
+<thead>
+<tr>
+<th align="center">缩写</th>
+<th>释义</th>
+<th>二进制</th>
+<th>十进制</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">r</td>
+<td>read 读</td>
+<td>0100</td>
+<td>4</td>
+</tr>
+<tr>
+<td align="center">w</td>
+<td>write 写</td>
+<td>0010</td>
+<td>2</td>
+</tr>
+<tr>
+<td align="center">x</td>
+<td>execut 可执行</td>
+<td>0001</td>
+<td>1</td>
+</tr>
+</tbody></table>
+<p>我们经常会用的一个命令 <code>$chmod 755 filename</code>来改变file的权限</p>
+<p>755表示的就是权限，分别为user、group、other的权限。<br>7： 4 + 2 + 1 = r + w + x<br>5： 4 + 1     = r + x</p>
+<p>也可以使用符号类型来表示：</p>
+<p><code>$ chmod [u、g、o、a][+(加入)、-(除去)、=(设置)] [r、w、x] 文件名称</code><br>u：user<br>g：group<br>0：other<br>a：all</p>
+<p>例如 <code>$ chmod a+x 123.txt</code> 表示所有人都有可执行权限。</p>
+<h2 id="shell重签名"><a href="#shell重签名" class="headerlink" title="shell重签名"></a>shell重签名</h2><p>就是在Xcode中，运行时执行shell脚本，自动帮我们处理签名的过程。在写shell脚本的时候，有以下几个步奏：</p>
+<ol>
+<li>解压ipa文件到Temp文件夹下</li>
+<li>将解压出来的app拷贝到工程下</li>
+<li>删除PlugIns和Watch相关的文件</li>
+<li>更新info.plist文件中bundle id</li>
+<li>给mach-o文件执行权限</li>
+<li>重签名framework</li>
+<li>替换签名</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br></pre></td><td class="code"><pre><span class="line"># $&#123;SRCROOT&#125; 它是工程文件所在的目录</span><br><span class="line">TEMP_PATH&#x3D;&quot;$&#123;SRCROOT&#125;&#x2F;Temp&quot;</span><br><span class="line">#资源文件夹，我们提前在工程目录下新建一个APP文件夹，里面放ipa包</span><br><span class="line">ASSETS_PATH&#x3D;&quot;$&#123;SRCROOT&#125;&#x2F;APP&quot;</span><br><span class="line">#目标ipa包路径</span><br><span class="line">TARGET_IPA_PATH&#x3D;&quot;$&#123;ASSETS_PATH&#125;&#x2F;*.ipa&quot;</span><br><span class="line">#清空Temp文件夹</span><br><span class="line">rm -rf &quot;$&#123;SRCROOT&#125;&#x2F;Temp&quot;</span><br><span class="line">mkdir -p &quot;$&#123;SRCROOT&#125;&#x2F;Temp&quot;</span><br><span class="line"></span><br><span class="line">#----------------------------------------</span><br><span class="line"># 1. 解压IPA到Temp下</span><br><span class="line">unzip -oqq &quot;$TARGET_IPA_PATH&quot; -d &quot;$TEMP_PATH&quot;</span><br><span class="line"># 拿到解压的临时的APP的路径</span><br><span class="line">TEMP_APP_PATH&#x3D;$(set -- &quot;$TEMP_PATH&#x2F;Payload&#x2F;&quot;*.app;echo &quot;$1&quot;)</span><br><span class="line"># echo &quot;路径是:$TEMP_APP_PATH&quot;</span><br><span class="line"></span><br><span class="line">#----------------------------------------</span><br><span class="line"># 2. 将解压出来的.app拷贝进入工程下</span><br><span class="line"># BUILT_PRODUCTS_DIR 工程生成的APP包的路径</span><br><span class="line"># TARGET_NAME target名称</span><br><span class="line">TARGET_APP_PATH&#x3D;&quot;$BUILT_PRODUCTS_DIR&#x2F;$TARGET_NAME.app&quot;</span><br><span class="line">echo &quot;app路径:$TARGET_APP_PATH&quot;</span><br><span class="line"></span><br><span class="line">rm -rf &quot;$TARGET_APP_PATH&quot;</span><br><span class="line">mkdir -p &quot;$TARGET_APP_PATH&quot;</span><br><span class="line">cp -rf &quot;$TEMP_APP_PATH&#x2F;&quot; &quot;$TARGET_APP_PATH&quot;</span><br><span class="line"></span><br><span class="line">#----------------------------------------</span><br><span class="line"># 3. 删除extension和WatchAPP.个人证书没法签名Extention</span><br><span class="line">rm -rf &quot;$TARGET_APP_PATH&#x2F;PlugIns&quot;</span><br><span class="line">rm -rf &quot;$TARGET_APP_PATH&#x2F;Watch&quot;</span><br><span class="line"></span><br><span class="line">#----------------------------------------</span><br><span class="line"># 4. 更新info.plist文件 CFBundleIdentifier</span><br><span class="line">#  设置:&quot;Set : KEY Value&quot; &quot;目标文件路径&quot;</span><br><span class="line"># PlistBuddy工具修改info.plist文件中的BundleID为工程的BundleID</span><br><span class="line">&#x2F;usr&#x2F;libexec&#x2F;PlistBuddy -c &quot;Set :CFBundleIdentifier $PRODUCT_BUNDLE_IDENTIFIER&quot; &quot;$TARGET_APP_PATH&#x2F;Info.plist&quot;</span><br><span class="line"></span><br><span class="line">#----------------------------------------</span><br><span class="line"># 5. 给MachO文件上执行权限</span><br><span class="line"># 拿到MachO文件的路径</span><br><span class="line">APP_BINARY&#x3D;&#96;plutil -convert xml1 -o - $TARGET_APP_PATH&#x2F;Info.plist|grep -A1 Exec|tail -n1|cut -f2 -d\&gt;|cut -f1 -d\&lt;&#96;</span><br><span class="line">#上可执行权限</span><br><span class="line">chmod +x &quot;$TARGET_APP_PATH&#x2F;$APP_BINARY&quot;</span><br><span class="line"></span><br><span class="line">#----------------------------------------</span><br><span class="line"># 6. 重签名第三方 FrameWorks</span><br><span class="line">TARGET_APP_FRAMEWORKS_PATH&#x3D;&quot;$TARGET_APP_PATH&#x2F;Frameworks&quot;</span><br><span class="line">if [ -d &quot;$TARGET_APP_FRAMEWORKS_PATH&quot; ];</span><br><span class="line">then</span><br><span class="line">for FRAMEWORK in &quot;$TARGET_APP_FRAMEWORKS_PATH&#x2F;&quot;*</span><br><span class="line">do</span><br><span class="line"></span><br><span class="line">#签名 </span><br><span class="line">#--force --sign 替换签名</span><br><span class="line"># EXPANDED_CODE_SIGN_IDENTITY 当前工程的证书</span><br><span class="line">&#x2F;usr&#x2F;bin&#x2F;codesign --force --sign &quot;$EXPANDED_CODE_SIGN_IDENTITY&quot; &quot;$FRAMEWORK&quot;</span><br><span class="line">done</span><br><span class="line">fi</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>这里在第一次运行Xcode时，注意要先注释掉该shell脚本，运行一次之后再打开该shell脚本，重新运行。</p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E5%BA%94%E7%94%A8%E7%AD%BE%E5%90%8D/" rel="tag"># 应用签名</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/05/20/%E9%80%86%E5%90%91/%E5%BA%94%E7%94%A8%E7%AD%BE%E5%90%8D/" rel="prev" title="应用签名">
+      <i class="fa fa-chevron-left"></i> 应用签名
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/05/22/OC%E5%8E%9F%E7%90%86/block/" rel="next" title="block">
+      block <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#应用重签名"><span class="nav-number">1.</span> <span class="nav-text">应用重签名</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#codesign-命令"><span class="nav-number">1.1.</span> <span class="nav-text">codesign 命令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#codesign-签名步奏"><span class="nav-number">1.2.</span> <span class="nav-text">codesign 签名步奏</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#查看签名"><span class="nav-number">1.2.1.</span> <span class="nav-text">查看签名</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#查看本地钥匙串中可用的证书"><span class="nav-number">1.2.2.</span> <span class="nav-text">查看本地钥匙串中可用的证书</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#强制签名"><span class="nav-number">1.2.3.</span> <span class="nav-text">强制签名</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#创建新的描述文件"><span class="nav-number">1.2.4.</span> <span class="nav-text">创建新的描述文件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#更改权限"><span class="nav-number">1.2.5.</span> <span class="nav-text">更改权限</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#app重签"><span class="nav-number">1.2.6.</span> <span class="nav-text">app重签</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#安装"><span class="nav-number">1.2.7.</span> <span class="nav-text">安装</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Xcode重签名"><span class="nav-number">2.</span> <span class="nav-text">Xcode重签名</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#codesign-与-Xcode签名比较"><span class="nav-number">3.</span> <span class="nav-text">codesign 与 Xcode签名比较</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Shell-重签"><span class="nav-number">4.</span> <span class="nav-text">Shell 重签</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#文件类型与权限"><span class="nav-number">4.1.</span> <span class="nav-text">文件类型与权限</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#shell重签名"><span class="nav-number">4.2.</span> <span class="nav-text">shell重签名</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="不会飞的小白"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">不会飞的小白</p>
+  <div class="site-description" itemprop="description">一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">29</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">15</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liujiaboy" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liujiaboy" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:alan129@163.com" title="E-Mail → mailto:alan129@163.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/u/1768698000" title="Weibo → https:&#x2F;&#x2F;weibo.com&#x2F;u&#x2F;1768698000" rel="noopener" target="_blank"><i class="fa fa-fw fa-weibo"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i></a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">不会飞的小白</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.2.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v7.7.2
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  
+  <script color='0,0,255' opacity='0.5' zIndex='-1' count='99' src="/lib/canvas-nest/canvas-nest.min.js"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

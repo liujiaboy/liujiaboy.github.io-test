@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="3WOMyh0YrdEECGDv2GOACbgBEtVz_dJbyA_2G-pjr28">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liujiaboy.github.io","root":"/","scheme":"Pisces","version":"7.7.2","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="KVC官方文档：About Key-Value Coding  Key-value coding is a mechanism enabled by the NSKeyValueCoding informal protocol that objects adopt to provide indirect access to their properties. When an object is k">
+<meta property="og:type" content="article">
+<meta property="og:title" content="KVC原理">
+<meta property="og:url" content="http://liujiaboy.github.io/2021/05/08/OC%E5%8E%9F%E7%90%86/KVC%E5%8E%9F%E7%90%86/index.html">
+<meta property="og:site_name" content="不会飞的小白">
+<meta property="og:description" content="KVC官方文档：About Key-Value Coding  Key-value coding is a mechanism enabled by the NSKeyValueCoding informal protocol that objects adopt to provide indirect access to their properties. When an object is k">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-05-08T00:39:49.000Z">
+<meta property="article:modified_time" content="2021-05-10T08:35:30.638Z">
+<meta property="article:author" content="不会飞的小白">
+<meta property="article:tag" content="Objective-C,">
+<meta property="article:tag" content="iOS">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://liujiaboy.github.io/2021/05/08/OC%E5%8E%9F%E7%90%86/KVC%E5%8E%9F%E7%90%86/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true
+  };
+</script>
+
+  <title>KVC原理 | 不会飞的小白</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="不会飞的小白" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">不会飞的小白</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">Stay Hungry, Stay Foolish</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/liujiaboy" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/05/08/OC%E5%8E%9F%E7%90%86/KVC%E5%8E%9F%E7%90%86/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="不会飞的小白">
+      <meta itemprop="description" content="一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="不会飞的小白">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          KVC原理
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-05-08 08:39:49" itemprop="dateCreated datePublished" datetime="2021-05-08T08:39:49+08:00">2021-05-08</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-05-10 16:35:30" itemprop="dateModified" datetime="2021-05-10T16:35:30+08:00">2021-05-10</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/OC%E5%8E%9F%E7%90%86/" itemprop="url" rel="index"><span itemprop="name">OC原理</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="KVC"><a href="#KVC" class="headerlink" title="KVC"></a>KVC</h1><p>官方文档：<a href="https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/KeyValueCoding/index.html#//apple_ref/doc/uid/10000107-SW1" target="_blank" rel="noopener">About Key-Value Coding</a></p>
+<blockquote>
+<p>Key-value coding is a mechanism enabled by the NSKeyValueCoding informal protocol that objects adopt to provide indirect access to their properties. When an object is key-value coding compliant, its properties are addressable via string parameters through a concise, uniform messaging interface. This indirect access mechanism supplements the direct access afforded by instance variables and their associated accessor methods.</p>
+</blockquote>
+<p>键值编码是由<code>NSKeyValueCoding</code>非正式协议启用的一种机制，对象采用这种机制来提供对其属性的间接访问。当对象是键值编码兼容的对象时，可以通过简洁，统一的消息传递接口通过字符串参数来访问其属性。这种间接访问机制补充了实例变量及其关联的访问器方法提供的直接访问。</p>
+<h1 id="KVC-API"><a href="#KVC-API" class="headerlink" title="KVC - API"></a>KVC - API</h1><h2 id="1-常用方法"><a href="#1-常用方法" class="headerlink" title="1. 常用方法"></a>1. 常用方法</h2><ul>
+<li><p>获取key对应的value：</p>
+  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">- (nullable id)valueForKey:(NSString *)key;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>通过key来设置value：</p>
+  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">- (void)setValue:(nullable id)value forKey:(NSString *)key;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>通过路径取值，一般情况下是model1中有一个model2，获取model2的属性值。</p>
+  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">- (nullable id)valueForKeyPath:(NSString *)keyPath;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>获取对应路径的值，一般情况下是model1中有一个model2，设置model2的属性值。</p>
+  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">- (void)setValue:(nullable id)value forKeyPath:(NSString *)keyPath;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>获取一个可变类型：</p>
+  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">- (NSMutableArray *)mutableArrayValueForKey:(NSString *)key;</span><br><span class="line"></span><br><span class="line">- (NSMutableSet *)mutableSetValueForKey:(NSString *)key;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>默认返回YES，如果当前没有设置key对应的属性（没有找到set<key>方法），会按照_key, _iskey, key, iskey的顺序搜索变量。如果返回NO，则不查询。</p>
+  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">+ (BOOL)accessInstanceVariablesDirectly;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>如果你在SetValue方法时面给Value传nil，则会调用这个方法</p>
+  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">- (void)setNilValueForKey:(NSString *)key;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>如果Key不存在，且KVC无法搜索到任何和Key有关的字段或者属性，则会调用这个方法，默认是抛出异常。</p>
+  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">- (nullable id)valueForUndefinedKey:(NSString *)key;</span><br><span class="line"></span><br><span class="line">- (void)setValue:(nullable id)value forUndefinedKey:(NSString *)key;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>KVC提供属性值正确性验证的API，它可以用来检查set的值是否正确、为不正确的值做一个替换值或者拒绝设置新值并返回错误原因。</p>
+  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">- (BOOL)validateValue:(inout id __nullable * __nonnull)ioValue forKey:(NSString *)inKey error:(out NSError **)outError;</span><br></pre></td></tr></table></figure>
+
+
+</li>
+</ul>
+<h2 id="2-set、get流程"><a href="#2-set、get流程" class="headerlink" title="2. set、get流程"></a>2. set、get流程</h2><p>声明一个Person类，声明4个变量。注意这里没有添加属性（添加属性默认会生成set、get方法），就是为了验证set、get流程。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">@interface Person : NSObject</span><br><span class="line">&#123;</span><br><span class="line">    NSString *_name;    &#x2F;&#x2F; 1.</span><br><span class="line">    NSString *_isName;  &#x2F;&#x2F; 2.</span><br><span class="line">    NSString *name;     &#x2F;&#x2F; 3.</span><br><span class="line">    NSString *isName;   &#x2F;&#x2F; 4.</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br></pre></td></tr></table></figure>
+
+<p>调用<code>setValue:forKey</code>方法，然后打印</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">Person *person &#x3D; [[Person alloc] init];</span><br><span class="line">&#x2F;&#x2F; KVC - 设置值的过程 setValue 分析调用过程</span><br><span class="line">[person setValue:@&quot;kvc&quot; forKey:@&quot;name&quot;];</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 1.</span><br><span class="line">NSLog(@&quot;%@-%@-%@-%@&quot;,person-&gt;_name,person-&gt;_isName,person-&gt;name,person-&gt;isName);</span><br><span class="line">&#x2F;&#x2F; 2.</span><br><span class="line">&#x2F;&#x2F;NSLog(@&quot;%@-%@-%@&quot;,person-&gt;_isName,person-&gt;name,person-&gt;isName);</span><br><span class="line">&#x2F;&#x2F; 3.</span><br><span class="line">&#x2F;&#x2F;NSLog(@&quot;%@-%@&quot;,person-&gt;name,person-&gt;isName);</span><br><span class="line">&#x2F;&#x2F; 4.</span><br><span class="line">&#x2F;&#x2F;NSLog(@&quot;%@&quot;,person-&gt;isName);</span><br></pre></td></tr></table></figure>
+
+<p>分别按照顺序1-2-3-4，每次注释一个变量，每次只执行一句<code>NSLog</code>，看看打印结果：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 1.</span><br><span class="line">kvc-(nill)-(nill)-(nill)</span><br><span class="line">&#x2F;&#x2F; 2.</span><br><span class="line">kvc-(nill)-(nill)</span><br><span class="line">&#x2F;&#x2F; 3.</span><br><span class="line">kvc-(nill)</span><br><span class="line">&#x2F;&#x2F; 4.</span><br><span class="line">kvc</span><br></pre></td></tr></table></figure>
+
+<p>为了进一步验证，可以在<code>Person.m</code>中，实现对应的set和get方法，分别打断点，按照1-2-3-4的顺序分别注释，可以进一步验证，set、get的流程。</p>
+<p><code>setValue:forKey:</code>：按照<code>set&lt;key&gt;, _set&lt;key&gt;, setIs&lt;key&gt;</code>进行设置。有一个执行，其他的不执行。</p>
+<blockquote>
+<p>注意：<code>_setIs&lt;key&gt;</code>这个方法不会执行。</p>
+</blockquote>
+<p><code>valueForKey</code>：按照<code>get&lt;key&gt;, &lt;key&gt;, is&lt;key&gt;, _&lt;key&gt;</code>顺序进行查找。有一个执行，不执行其他的。</p>
+<p>这里有官方的设置key-value的流程：<a href="https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/KeyValueCoding/SearchImplementation.html#//apple_ref/doc/uid/20000955-CJBBBFFA" target="_blank" rel="noopener">Accessor Search Patterns</a>，写的很详细。</p>
+<h3 id="2-1-Get-流程"><a href="#2-1-Get-流程" class="headerlink" title="2.1 Get 流程"></a>2.1 Get 流程</h3><ol>
+<li>按照访问方法<code>-get&lt;Key&gt;，-&lt;key&gt;，-is&lt;Key&gt;，-_&lt;key&gt;</code>的顺序进行查找，如果找到执行步奏【5】。否则执行步奏【2】。</li>
+<li>在实例中搜索①<code>countOf&lt;Key&gt;</code>，②<code>objectIn&lt;Key&gt;AtIndex:</code>（与<code>NSArray</code>类定义的原始方法<code>&lt;key&gt;AtIndexes:</code>相对应）或③<code>objectsAtIndexes:</code>（与NSArray方法相对应）。如果找到①，再找到②或③中的一个，则创建一个响应所有NSArray方法的集合代理对象并将其返回。否则，请继续执行步骤【3】。</li>
+<li>如果找到了①<code>countOf&lt;Key&gt;</code>，没有找到②或③，那么会去找<code>enumeratorOf&lt;Key&gt;</code>和<code>memberOf&lt;Key&gt;:</code>（对应NSSet类）。如果找到了所有三个方法，则创建一个响应所有NSSet方法的集合代理对象并将其返回。否则，请继续执行步骤【4】。</li>
+<li>如果接收器的类方法<code>+(BOOL)accessInstanceVariablesDirectly</code>返回YES，则按照<code>_&lt;key&gt;，_is&lt;Key&gt;，&lt;key&gt;，is&lt;Key&gt;</code>的顺序搜索实例变量。如果找到，直接获取实例变量的值，然后继续执行步骤【5】。否则，继续执行步骤【6】。</li>
+<li>如果获取到的变量是对象指针，则只需返回结果。<br> 如果该值是可以转换位<code>NSNumber</code>类型，则将其存储在NSNumber实例中并返回该实例。<br> 如果结果是<code>NSNumber</code>不支持的类型，请转换为<code>NSValue</code>对象并返回该对象。</li>
+<li>如果其他所有方法均失败，则调用<code>valueForUndefinedKey:</code>。默认情况下会引发异常。</li>
+</ol>
+<h3 id="2-2-Set流程"><a href="#2-2-Set流程" class="headerlink" title="2.2 Set流程"></a>2.2 Set流程</h3><ol>
+<li>按此顺序查找第一个名为<code>set&lt;Key&gt;:, _set&lt;Key&gt;:, setIsName:</code>的set方法。如果找到，调用它并完成。</li>
+<li>如果没有找到，如果类方法<code>+(BOOL)accessInstanceVariablesDirectly</code>返回YES，则按照顺序<code>_&lt;key&gt;，_is&lt;Key&gt;，&lt;key&gt;，is&lt;Key&gt;</code>查找实例变量。如果找到，则直接对变量进行赋值。</li>
+<li>如果步奏【1】和【2】都失败了，则调用<code>setValue:forUndefinedKey:</code>。默认情况下会引发异常。</li>
+</ol>
+<h1 id="集合类型"><a href="#集合类型" class="headerlink" title="集合类型"></a>集合类型</h1><h2 id="1-集合类型"><a href="#1-集合类型" class="headerlink" title="1. 集合类型"></a>1. 集合类型</h2><p>在<code>Person</code>类中，声明一个不可变数组</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">@property (nonatomic, copy) NSArray *array;</span><br></pre></td></tr></table></figure>
+
+<p>对不可变类型进行赋值时，可以使用<code>mutableArrayValueForKey</code>先获取一个可变数组，然后直接赋值就好。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">person.array &#x3D; @[@&quot;1&quot;,@&quot;2&quot;,@&quot;3&quot;];</span><br><span class="line">&#x2F;&#x2F; 修改数组</span><br><span class="line">&#x2F;&#x2F; person.array[0] &#x3D; @&quot;100&quot;;&#x2F;&#x2F; 这种方式不可用</span><br><span class="line">&#x2F;&#x2F; 1. 获取一个新的数组 - KVC 赋值</span><br><span class="line">NSArray *array &#x3D; [person valueForKey:@&quot;array&quot;];</span><br><span class="line">array &#x3D; @[@&quot;100&quot;,@&quot;2&quot;,@&quot;3&quot;];</span><br><span class="line">[person setValue:array forKey:@&quot;array&quot;];</span><br><span class="line">NSLog(@&quot;%@&quot;,[person valueForKey:@&quot;array&quot;]);</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 2. 使用mutableArrayValueForKey</span><br><span class="line">NSMutableArray *mArray &#x3D; [person mutableArrayValueForKey:@&quot;array&quot;];</span><br><span class="line">mArray[0] &#x3D; @&quot;200&quot;;</span><br><span class="line">NSLog(@&quot;%@&quot;,[person valueForKey:@&quot;array&quot;]);</span><br></pre></td></tr></table></figure>
+
+<p>输出结果：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">2021-05-09 10:17:58.004460+0800 KVCDemo[70852:4744247] (</span><br><span class="line">    100,</span><br><span class="line">    2,</span><br><span class="line">    3</span><br><span class="line">)</span><br><span class="line">2021-05-09 10:17:58.005523+0800 KVCDemo[70852:4744247] (</span><br><span class="line">    200,</span><br><span class="line">    2,</span><br><span class="line">    3</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<p>如果声明的是一个可变数组，那通过<code>[person valueForKey:@&quot;mArray&quot;];</code>获取到的就是一个可变数组。</p>
+<h2 id="2-集合类型set、get流程补充"><a href="#2-集合类型set、get流程补充" class="headerlink" title="2. 集合类型set、get流程补充"></a>2. 集合类型set、get流程补充</h2><p>直接上代码：这里使用的key是一个没有在类中声明的变量/属性<code>pens</code>。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">person.arr &#x3D; @[@&quot;pen0&quot;, @&quot;pen1&quot;, @&quot;pen2&quot;, @&quot;pen3&quot;];</span><br><span class="line">&#x2F;&#x2F; 直接运行，在这里会发生crash</span><br><span class="line">NSArray *array &#x3D; [person valueForKey:@&quot;pens&quot;];</span><br><span class="line">NSLog(@&quot;%@&quot;,[array objectAtIndex:1]);</span><br><span class="line">NSLog(@&quot;%d&quot;,[array containsObject:@&quot;pen1&quot;]);</span><br><span class="line">    </span><br><span class="line">&#x2F;&#x2F; set 集合</span><br><span class="line">person.set &#x3D; [NSSet setWithArray:person.arr];</span><br><span class="line">NSSet *set &#x3D; [person valueForKey:@&quot;books&quot;];</span><br><span class="line">[set enumerateObjectsUsingBlock:^(id  _Nonnull obj, BOOL * _Nonnull stop) &#123;</span><br><span class="line">    NSLog(@&quot;set遍历 %@&quot;,obj);</span><br><span class="line">&#125;];</span><br></pre></td></tr></table></figure>
+
+<p>直接运行，会发生crash。</p>
+<blockquote>
+<p>*** Terminating app due to uncaught exception ‘NSUnknownKeyException’, reason: ‘[&lt;LGPerson 0x6000024610c0&gt; valueForUndefinedKey:]: this class is not key value coding-compliant for the key pens.’</p>
+</blockquote>
+<p>按照上面的流程分析，我们需要对NSArray和NSSet类型提供方法。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F;MARK: - NSArray</span><br><span class="line">&#x2F;&#x2F; 个数</span><br><span class="line">- (NSUInteger)countOfPens&#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;,__func__);</span><br><span class="line">    return [self.arr count];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 获取值</span><br><span class="line">- (id)objectInPensAtIndex:(NSUInteger)index &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;,__func__);</span><br><span class="line">    return [NSString stringWithFormat:@&quot;pens %lu&quot;, index];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F;MARK: - set</span><br><span class="line">&#x2F;&#x2F; 个数</span><br><span class="line">- (NSUInteger)countOfBooks&#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;,__func__);</span><br><span class="line">    return [self.set count];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 是否包含这个成员对象</span><br><span class="line">- (id)memberOfBooks:(id)object &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;,__func__);</span><br><span class="line">    return [self.set containsObject:object] ? object : nil;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 迭代器</span><br><span class="line">- (id)enumeratorOfBooks &#123;</span><br><span class="line">    &#x2F;&#x2F; objectEnumerator</span><br><span class="line">    NSLog(@&quot;%s&quot;,__func__);</span><br><span class="line">    return [self.arr reverseObjectEnumerator];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>补充完整上述方法，即可正常运行，对数组进行操作。</p>
+<h1 id="结构体"><a href="#结构体" class="headerlink" title="结构体"></a>结构体</h1><p>声明一个结构体类型的属性。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">typedef struct &#123;</span><br><span class="line">    float x, y, z;</span><br><span class="line">&#125; ThreeFloats;</span><br><span class="line"></span><br><span class="line">@property (nonatomic) ThreeFloats threeFloats;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">ThreeFloats floats &#x3D; &#123;1.,2.,3.&#125;;</span><br><span class="line">NSValue *value     &#x3D; [NSValue valueWithBytes:&amp;floats objCType:@encode(ThreeFloats)];</span><br><span class="line">[person setValue:value forKey:@&quot;threeFloats&quot;];</span><br><span class="line">NSValue *value1    &#x3D; [person valueForKey:@&quot;threeFloats&quot;];</span><br><span class="line">NSLog(@&quot;%@&quot;,value1);</span><br><span class="line">    </span><br><span class="line">ThreeFloats th;</span><br><span class="line">[value1 getValue:&amp;th];</span><br><span class="line">NSLog(@&quot;%f-%f-%f&quot;,th.x,th.y,th.z);</span><br></pre></td></tr></table></figure>
+
+<p>对于结构体类型的数据，需要先转化成<code>NSValue</code>类型。常量类型会先转化成<code>NSNumber</code>类型</p>
+<h1 id="自定义KVC"><a href="#自定义KVC" class="headerlink" title="自定义KVC"></a>自定义KVC</h1><p>根据set、get流程分析，自定义主要分为以下几个流程，需要注意的是要做安全判断，防止发生异常。</p>
+<h2 id="1-kvc自定义set"><a href="#1-kvc自定义set" class="headerlink" title="1. kvc自定义set"></a>1. kvc自定义set</h2><ol>
+<li>判断key，value的情况</li>
+<li>通过传进来的key生成对应的set方法。</li>
+<li>判断生成的3种set方法是否可以被响应，可以被响应直接return。</li>
+<li>判断accessInstanceVariablesDirectly是否返回YES。</li>
+<li>判断4种实例变量是否存在，存在则赋值，否则crash异常处理。</li>
+</ol>
+<h2 id="2-KVC-自定义Get"><a href="#2-KVC-自定义Get" class="headerlink" title="2. KVC 自定义Get"></a>2. KVC 自定义Get</h2><ol>
+<li>判断key的值。</li>
+<li>生成对应的<code>-get&lt;Key&gt;，-&lt;key&gt;，-is&lt;Key&gt;，-_&lt;key&gt;</code>方法。判断是否可以响应。</li>
+<li>不响应判断get流程种NSArray的处理。</li>
+<li>不想要判断get流程种NSSet的处理。</li>
+<li>判断accessInstanceVariablesDirectly是否返回YES。</li>
+<li>判断变量是否存在，存在直接返回。</li>
+<li>异常处理。</li>
+</ol>
+<p>自定义set、get完全是按照set和get的流程处理的。代码就不上了，太占地方。</p>
+<h1 id="补充，KVC的高级使用"><a href="#补充，KVC的高级使用" class="headerlink" title="补充，KVC的高级使用"></a>补充，KVC的高级使用</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">NSArray *arrStr &#x3D; @[@&quot;1&quot;, @&quot;10&quot;, @&quot;100&quot;];</span><br><span class="line">NSArray *arrCapStr &#x3D; [arrStr valueForKey:@&quot;capitalizedString&quot;];</span><br><span class="line">    </span><br><span class="line">for (NSString *str in arrCapStr) &#123;</span><br><span class="line">    NSLog(@&quot;%@&quot;, str);</span><br><span class="line">&#125;</span><br><span class="line">    </span><br><span class="line">NSArray *arrCapStrLength &#x3D; [arrCapStr valueForKeyPath:@&quot;capitalizedString.length&quot;];</span><br><span class="line">for (NSNumber *length in arrCapStrLength) &#123;</span><br><span class="line">    NSLog(@&quot;%ld&quot;, (long)length.integerValue);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>打印出来的结果：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">1</span><br><span class="line">10</span><br><span class="line">100</span><br><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td></tr></table></figure>
+
+<p>还有关于model中嵌套model的也差不多类似，大家探索一下吧。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><ol>
+<li>KVC可以间接访问私有变量。</li>
+<li><code>valueForKey</code>返回key对应的类型数据。如果是不可变数组，通过<code>mutableArrayValueForKey</code>获取的也会是可变类型。</li>
+<li><code>setValue:forKey:, valueForKey:</code>的流程。</li>
+<li>自定义KVC。</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Objective-C/" rel="tag"># Objective-C,</a>
+              <a href="/tags/iOS/" rel="tag"># iOS</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/04/28/%E9%80%86%E5%90%91/ARM%E6%B1%87%E7%BC%96-5/" rel="prev" title="ARM汇编-5 OC反汇编">
+      <i class="fa fa-chevron-left"></i> ARM汇编-5 OC反汇编
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/05/08/OC%E5%8E%9F%E7%90%86/KVO%E5%8E%9F%E7%90%86/" rel="next" title="KVO原理">
+      KVO原理 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#KVC"><span class="nav-number">1.</span> <span class="nav-text">KVC</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#KVC-API"><span class="nav-number">2.</span> <span class="nav-text">KVC - API</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-常用方法"><span class="nav-number">2.1.</span> <span class="nav-text">1. 常用方法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-set、get流程"><span class="nav-number">2.2.</span> <span class="nav-text">2. set、get流程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-Get-流程"><span class="nav-number">2.2.1.</span> <span class="nav-text">2.1 Get 流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-Set流程"><span class="nav-number">2.2.2.</span> <span class="nav-text">2.2 Set流程</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#集合类型"><span class="nav-number">3.</span> <span class="nav-text">集合类型</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-集合类型"><span class="nav-number">3.1.</span> <span class="nav-text">1. 集合类型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-集合类型set、get流程补充"><span class="nav-number">3.2.</span> <span class="nav-text">2. 集合类型set、get流程补充</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#结构体"><span class="nav-number">4.</span> <span class="nav-text">结构体</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#自定义KVC"><span class="nav-number">5.</span> <span class="nav-text">自定义KVC</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-kvc自定义set"><span class="nav-number">5.1.</span> <span class="nav-text">1. kvc自定义set</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-KVC-自定义Get"><span class="nav-number">5.2.</span> <span class="nav-text">2. KVC 自定义Get</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#补充，KVC的高级使用"><span class="nav-number">6.</span> <span class="nav-text">补充，KVC的高级使用</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#总结"><span class="nav-number">7.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="不会飞的小白"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">不会飞的小白</p>
+  <div class="site-description" itemprop="description">一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">29</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">15</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liujiaboy" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liujiaboy" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:alan129@163.com" title="E-Mail → mailto:alan129@163.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/u/1768698000" title="Weibo → https:&#x2F;&#x2F;weibo.com&#x2F;u&#x2F;1768698000" rel="noopener" target="_blank"><i class="fa fa-fw fa-weibo"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i></a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">不会飞的小白</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.2.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v7.7.2
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  
+  <script color='0,0,255' opacity='0.5' zIndex='-1' count='99' src="/lib/canvas-nest/canvas-nest.min.js"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

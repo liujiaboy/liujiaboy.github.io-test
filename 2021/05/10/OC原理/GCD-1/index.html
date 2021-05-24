@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="3WOMyh0YrdEECGDv2GOACbgBEtVz_dJbyA_2G-pjr28">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liujiaboy.github.io","root":"/","scheme":"Pisces","version":"7.7.2","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="GCD简介全称是 Grand Central Dispatch。底层为C语言，将任务添加到队列，并且指定执行任务的函数。GCD提供了非常强大的函数。 GCD的优势 是苹果公司为多核的并行运算提出的解决方案 会自动利用更多的CPU内核(比如双核、四核) 会自动管理线程的生命周期(创建线程、调度任务、销毁线程) 程序员只需要告诉 GCD 想要执行什么任务，不需要编写任何线程管理代码  同步和异步函数G">
+<meta property="og:type" content="article">
+<meta property="og:title" content="GCD底层原理-1">
+<meta property="og:url" content="http://liujiaboy.github.io/2021/05/10/OC%E5%8E%9F%E7%90%86/GCD-1/index.html">
+<meta property="og:site_name" content="不会飞的小白">
+<meta property="og:description" content="GCD简介全称是 Grand Central Dispatch。底层为C语言，将任务添加到队列，并且指定执行任务的函数。GCD提供了非常强大的函数。 GCD的优势 是苹果公司为多核的并行运算提出的解决方案 会自动利用更多的CPU内核(比如双核、四核) 会自动管理线程的生命周期(创建线程、调度任务、销毁线程) 程序员只需要告诉 GCD 想要执行什么任务，不需要编写任何线程管理代码  同步和异步函数G">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://liujiaboy.github.io/2021/05/10/OC%E5%8E%9F%E7%90%86/GCD-1/queue.jpg">
+<meta property="og:image" content="http://liujiaboy.github.io/2021/05/10/OC%E5%8E%9F%E7%90%86/GCD-1/loop-queue.jpg">
+<meta property="og:image" content="http://liujiaboy.github.io/2021/05/10/OC%E5%8E%9F%E7%90%86/GCD-1/dq_push.jpg">
+<meta property="og:image" content="http://liujiaboy.github.io/2021/05/10/OC%E5%8E%9F%E7%90%86/GCD-1/wakeup.jpg">
+<meta property="article:published_time" content="2021-05-10T13:24:11.000Z">
+<meta property="article:modified_time" content="2021-05-17T02:21:40.554Z">
+<meta property="article:author" content="不会飞的小白">
+<meta property="article:tag" content="Objective-C,">
+<meta property="article:tag" content="iOS">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://liujiaboy.github.io/2021/05/10/OC%E5%8E%9F%E7%90%86/GCD-1/queue.jpg">
+
+<link rel="canonical" href="http://liujiaboy.github.io/2021/05/10/OC%E5%8E%9F%E7%90%86/GCD-1/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true
+  };
+</script>
+
+  <title>GCD底层原理-1 | 不会飞的小白</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="不会飞的小白" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">不会飞的小白</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">Stay Hungry, Stay Foolish</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/liujiaboy" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/05/10/OC%E5%8E%9F%E7%90%86/GCD-1/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="不会飞的小白">
+      <meta itemprop="description" content="一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="不会飞的小白">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          GCD底层原理-1
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-05-10 21:24:11" itemprop="dateCreated datePublished" datetime="2021-05-10T21:24:11+08:00">2021-05-10</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-05-17 10:21:40" itemprop="dateModified" datetime="2021-05-17T10:21:40+08:00">2021-05-17</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/OC%E5%8E%9F%E7%90%86/" itemprop="url" rel="index"><span itemprop="name">OC原理</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="GCD简介"><a href="#GCD简介" class="headerlink" title="GCD简介"></a>GCD简介</h1><p>全称是 Grand Central Dispatch。底层为C语言，将任务添加到队列，并且指定执行任务的函数。GCD提供了非常强大的函数。</p>
+<h2 id="GCD的优势"><a href="#GCD的优势" class="headerlink" title="GCD的优势"></a>GCD的优势</h2><ul>
+<li>是苹果公司为多核的并行运算提出的解决方案</li>
+<li>会自动利用更多的CPU内核(比如双核、四核)</li>
+<li>会自动管理线程的生命周期(创建线程、调度任务、销毁线程) 程序员只需要告诉 GCD 想要执行什么任务，不需要编写任何线程管理代码</li>
+</ul>
+<h2 id="同步和异步函数"><a href="#同步和异步函数" class="headerlink" title="同步和异步函数"></a>同步和异步函数</h2><p>GCD使用block封装任务，任务的block没有参数也没有返回值。</p>
+<p>任务的调度有同步和异步之分。</p>
+<h3 id="同步dispatch-sync"><a href="#同步dispatch-sync" class="headerlink" title="同步dispatch_sync"></a>同步<code>dispatch_sync</code></h3><ol>
+<li>必须等待当前语句执行完毕，才会执行下一条语句。</li>
+<li>同步不会开启线程。</li>
+<li>在当前线程执行block任务。</li>
+</ol>
+<h3 id="异步-dispatch-async"><a href="#异步-dispatch-async" class="headerlink" title="异步 dispatch_async"></a>异步 <code>dispatch_async</code></h3><ol>
+<li>会开启新线程执行block任务</li>
+<li>异步是多线程的代名词</li>
+</ol>
+<h2 id="队列"><a href="#队列" class="headerlink" title="队列"></a>队列</h2><p>队列是一种数据结构，遵循先进先出的原则（FIFO）。分为串行队列和并发队列（并行）。</p>
+<p>不管是串行还是并发队列，谁在队列的最前头谁先开始执行。但是执行的快慢与当前所需资源有关。</p>
+<p><img src="queue.jpg" alt=""></p>
+<p>串行等待上一个任务执行完成<br>并发不会等待上一个任务执行完成</p>
+<h2 id="函数与队列"><a href="#函数与队列" class="headerlink" title="函数与队列"></a>函数与队列</h2><h3 id="同步函数-串行队列"><a href="#同步函数-串行队列" class="headerlink" title="同步函数 + 串行队列"></a>同步函数 + 串行队列</h3><ul>
+<li>不会开启线程，在当前线程执行任务</li>
+<li>执行完一个执行下一个，会产生堵塞</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 创建串行队列</span><br><span class="line">- (void)serialSyncTest&#123;</span><br><span class="line">    dispatch_queue_t queue &#x3D; dispatch_queue_create(&quot;queue1&quot;, DISPATCH_QUEUE_SERIAL);</span><br><span class="line">    for (int i &#x3D; 0; i &lt; 20; i++) &#123;</span><br><span class="line">        &#x2F;&#x2F; a</span><br><span class="line">        dispatch_sync(queue, ^&#123;</span><br><span class="line">            &#x2F;&#x2F; b</span><br><span class="line">            NSLog(@&quot;i &#x3D; %d, thread &#x3D; %@&quot;,i,[NSThread currentThread]);</span><br><span class="line">        &#125;);</span><br><span class="line">        &#x2F;&#x2F; c</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>会从0到19，按照a-b-c的顺序输出所有数据。根据打印的线程，发现就是主线程，并不会开启新线程。</p>
+<h3 id="同步函数-并发队列"><a href="#同步函数-并发队列" class="headerlink" title="同步函数 + 并发队列"></a>同步函数 + 并发队列</h3><ul>
+<li>不会开启线程，在当前线程执行任务</li>
+<li>任务一个接着一个执行</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">- (void)concurrentSyncTest&#123;</span><br><span class="line"></span><br><span class="line">    &#x2F;&#x2F;1:创建并发队列</span><br><span class="line">    dispatch_queue_t queue &#x3D; dispatch_queue_create(&quot;queue2&quot;, DISPATCH_QUEUE_CONCURRENT);</span><br><span class="line">    for (int i &#x3D; 0; i&lt;20; i++) &#123;</span><br><span class="line">        dispatch_sync(queue, ^&#123;</span><br><span class="line">            NSLog(@&quot;i &#x3D; %d, thread &#x3D; %@&quot;,i,[NSThread currentThread]);</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">    NSLog(@&quot;hello queue&quot;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>同步并发队列，会按照顺序执行，最后打印<code>hello queue</code>。</p>
+<p>同步函数的情况下，不管是串行还是并发，都不会开启新线程，任务按步执行。</p>
+<h3 id="异步函数-串行队列"><a href="#异步函数-串行队列" class="headerlink" title="异步函数 + 串行队列"></a>异步函数 + 串行队列</h3><ul>
+<li>开启新线程</li>
+<li>任务一个接一个执行</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 异步串行</span><br><span class="line">- (void)serialAsyncTest&#123;</span><br><span class="line">    &#x2F;&#x2F;1:创建串行队列</span><br><span class="line">    dispatch_queue_t queue &#x3D; dispatch_queue_create(&quot;queue3&quot;, DISPATCH_QUEUE_SERIAL);</span><br><span class="line">    for (int i &#x3D; 0; i&lt;20; i++) &#123;</span><br><span class="line">        &#x2F;&#x2F; a</span><br><span class="line">        dispatch_async(queue, ^&#123;</span><br><span class="line">            &#x2F;&#x2F; b</span><br><span class="line">            NSLog(@&quot;i &#x3D; %d，thread &#x3D; %@&quot;,i,[NSThread currentThread]);</span><br><span class="line">        &#125;);</span><br><span class="line">        &#x2F;&#x2F; c</span><br><span class="line">    &#125;</span><br><span class="line">    &#x2F;&#x2F; d</span><br><span class="line">    NSLog(@&quot;hello queue&quot;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>由于是异步串行队列，线程的创建会有耗时操作，在for循环中执行的顺序是a-c-b(a)，执行了a之后是c，在之后不一定是a还是b。</p>
+<p>而d语句可能先执行，也可能后执行。</p>
+<p>根据线程的打印情况，发现会开启新线程。</p>
+<h3 id="异步函数-并发队列"><a href="#异步函数-并发队列" class="headerlink" title="异步函数 + 并发队列"></a>异步函数 + 并发队列</h3><ul>
+<li>开启新线程，并开始执行</li>
+<li>任务异步执行，没有顺序，与CPU调度有关</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">- (void)concurrentAsyncTest&#123;</span><br><span class="line">    &#x2F;&#x2F;1:创建并发队列</span><br><span class="line">    dispatch_queue_t queue &#x3D; dispatch_queue_create(&quot;queue4&quot;, DISPATCH_QUEUE_CONCURRENT);</span><br><span class="line">    for (int i &#x3D; 0; i&lt;20; i++) &#123;</span><br><span class="line">        dispatch_async(queue, ^&#123;</span><br><span class="line">            NSLog(@&quot;%d-%@&quot;,i,[NSThread currentThread]);</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">    NSLog(@&quot;hello queue&quot;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>会开启新的线程，执行没有顺序。</p>
+<h2 id="函数队列的面试题"><a href="#函数队列的面试题" class="headerlink" title="函数队列的面试题"></a>函数队列的面试题</h2><h3 id="异步并发队列"><a href="#异步并发队列" class="headerlink" title="异步并发队列"></a>异步并发队列</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">- (void)textDemo &#123;</span><br><span class="line">    dispatch_queue_t queue &#x3D; dispatch_queue_create(&quot;queue&quot;, DISPATCH_QUEUE_CONCURRENT);</span><br><span class="line">    NSLog(@&quot;1&quot;);</span><br><span class="line">    &#x2F;&#x2F; 耗时</span><br><span class="line">    dispatch_async(queue, ^&#123;</span><br><span class="line">        NSLog(@&quot;2&quot;);</span><br><span class="line">        dispatch_async(queue, ^&#123;</span><br><span class="line">            NSLog(@&quot;3&quot;);</span><br><span class="line">        &#125;);</span><br><span class="line">        NSLog(@&quot;4&quot;);</span><br><span class="line">    &#125;);</span><br><span class="line">    NSLog(@&quot;5&quot;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这是一个并行队列，内部是异步执行。当block内部有任务需要执行时，会产生耗时，所以就会先执行完成block外部的简单调用。而在block内部，是按照正常的流程执行的。</p>
+<p>打印的结果是<code>1 5 2 4 3</code>。</p>
+<h3 id="异步串行队列"><a href="#异步串行队列" class="headerlink" title="异步串行队列"></a>异步串行队列</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">- (void)textDemo1&#123;</span><br><span class="line">    &#x2F;&#x2F; 串行队列</span><br><span class="line">    dispatch_queue_t queue &#x3D; dispatch_queue_create(&quot;queue&quot;, NULL);</span><br><span class="line">    NSLog(@&quot;1&quot;);</span><br><span class="line">    dispatch_async(queue, ^&#123;</span><br><span class="line">        NSLog(@&quot;2&quot;);</span><br><span class="line">        dispatch_async(queue, ^&#123;</span><br><span class="line">            NSLog(@&quot;3&quot;);</span><br><span class="line">        &#125;);</span><br><span class="line">        NSLog(@&quot;4&quot;);</span><br><span class="line">    &#125;);</span><br><span class="line">    NSLog(@&quot;5&quot;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>只要是block内部需要执行，则一定是耗时操作，所以先执行1，然后5，在异步串行队列内部，是与外部一样的道理，</p>
+<p>结果是：1 5 2 4 3</p>
+<h3 id="并发队列-异步同步嵌套"><a href="#并发队列-异步同步嵌套" class="headerlink" title="并发队列 异步同步嵌套"></a>并发队列 异步同步嵌套</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">- (void)textDemo3 &#123;</span><br><span class="line">    &#x2F;&#x2F; 并发队列</span><br><span class="line">    dispatch_queue_t queue &#x3D; dispatch_queue_create(&quot;queue&quot;, DISPATCH_QUEUE_CONCURRENT);</span><br><span class="line">    NSLog(@&quot;1&quot;);</span><br><span class="line">    dispatch_async(queue, ^&#123;</span><br><span class="line">        NSLog(@&quot;2&quot;);</span><br><span class="line">        dispatch_sync(queue, ^&#123;</span><br><span class="line">            NSLog(@&quot;3&quot;);</span><br><span class="line">        &#125;);</span><br><span class="line">        NSLog(@&quot;4&quot;);</span><br><span class="line">    &#125;);</span><br><span class="line">    NSLog(@&quot;5&quot;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>结果为 1 5 2 3 4<br>同步并发队列也不会开启新线程，一个一个执行。</p>
+<h3 id="串行-异步同步嵌套"><a href="#串行-异步同步嵌套" class="headerlink" title="串行 异步同步嵌套"></a>串行 异步同步嵌套</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">- (void)textDemo4 &#123;</span><br><span class="line">    &#x2F;&#x2F; 串行队列</span><br><span class="line">    dispatch_queue_t queue &#x3D; dispatch_queue_create(&quot;queue&quot;, NULL);</span><br><span class="line">    NSLog(@&quot;1&quot;);</span><br><span class="line">    &#x2F;&#x2F; 异步函数</span><br><span class="line">    dispatch_async(queue, ^&#123;</span><br><span class="line">        NSLog(@&quot;2&quot;);</span><br><span class="line">        &#x2F;&#x2F; 同步</span><br><span class="line">        dispatch_sync(queue, ^&#123;</span><br><span class="line">            NSLog(@&quot;3&quot;);</span><br><span class="line">        &#125;);</span><br><span class="line">        NSLog(@&quot;4&quot;);</span><br><span class="line">    &#125;);</span><br><span class="line">    NSLog(@&quot;5&quot;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面已经有过异步串行、异步并行的例子了，只要异步函数内部有任务要执行，就属于耗时操作，会优先执行完毕外部的简单操作。所以先执行 1 5</p>
+<p>在异步函数内部，继续串行执行。这时候会执行2，然后碰到了同步串行队列。而同步串行队列是需要等待外部执行完成之后才会执行，但是4也在等待同步函数的执行，造成了互相等待，发生了死锁。</p>
+<p><img src="loop-queue.jpg" alt=""></p>
+<p>这里即使把4注释掉，也同样会发生死锁。</p>
+<p>所以结果为： 1 5 2 – 死锁</p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>我们一定要清楚，不管是异步还是同步，都是对与block块和其下一行代码来说的。在block内部不管当前是异步还是同步，串行还是并行，都是从上往下执行的。</p>
+<p>另外并发和串行的区别：</p>
+<ul>
+<li>并发不会等待一个任务执行完成才执行。</li>
+<li>串行会等待一个任务执行完毕才执行。</li>
+</ul>
+<p>同步和异步：<br>同步和异步是对当前线程而言的。</p>
+<ul>
+<li>异步函数下，不管是串行队列还是并行队列，都不影响block块之外的内存执。因为block内部是在新开启的线程中执行的。</li>
+<li>同步函数下，并行队列不受影响，因为并行不需要等待上一个任务执行完成。如果是串行队列，那在当前线程下会发生死锁。</li>
+</ul>
+<h1 id="主队列-amp-全局队列"><a href="#主队列-amp-全局队列" class="headerlink" title="主队列 &amp; 全局队列"></a>主队列 &amp; 全局队列</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">dispatch_queue_t serial &#x3D; dispatch_queue_create(&quot;serial&quot;, DISPATCH_QUEUE_SERIAL);</span><br><span class="line">dispatch_queue_t conque &#x3D; dispatch_queue_create(&quot;conque&quot;, DISPATCH_QUEUE_CONCURRENT);</span><br><span class="line">dispatch_queue_t mainQueue &#x3D; dispatch_get_main_queue();</span><br><span class="line">dispatch_queue_t globQueue &#x3D; dispatch_get_global_queue(0, 0);</span><br><span class="line"></span><br><span class="line">NSLog(@&quot;%@\n%@\n%@\n%@&quot;,serial,conque,mainQueue,globQueue);</span><br></pre></td></tr></table></figure>
+
+<p>打印一些这4个队列：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&lt;OS_dispatch_queue_serial: serial&gt;</span><br><span class="line">&lt;OS_dispatch_queue_concurrent: conque&gt;</span><br><span class="line">&lt;OS_dispatch_queue_main: com.apple.main-thread&gt;</span><br><span class="line">&lt;OS_dispatch_queue_global: com.apple.root.default-qos&gt;</span><br></pre></td></tr></table></figure>
+
+<p>这里打印了4个队列，但是其实一共只有两个队列，就是串行队列和并发队列。</p>
+<p>通过汇编手法，我们发现GCD的源码存在与<code>libdispatch.dylib</code>库中，我们就从这个库里看GCD的底层实现。</p>
+<h2 id="主队列"><a href="#主队列" class="headerlink" title="主队列"></a>主队列</h2><p><code>dispatch_get_main_queue()</code>主队列专门用来在主线程上调度任务的<b>串行队列</b>，并不会开启新线程。</p>
+<p>如果当前主线程正在执行任务，那么无论主队列中被添加了什么任务，都不会被调度执行。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dispatch_queue_t mainQueue &#x3D; dispatch_get_main_queue();</span><br></pre></td></tr></table></figure>
+
+<p>我们通过源码查看</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F;</span><br><span class="line">dispatch_queue_main_t</span><br><span class="line">dispatch_get_main_queue(void)</span><br><span class="line">&#123;</span><br><span class="line">	return DISPATCH_GLOBAL_OBJECT(dispatch_queue_main_t, _dispatch_main_q);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在<code>dispatch_get_main_queue</code>的解释中，我们发现：主队列依赖于主线程<code>dispatch_main()</code>和<code>runloop</code>，并且主线程是在<code>main()</code>函数之前自动创建的（dyld的流程）。</p>
+<p>先看看啥是<code>dispatch_queue_main_t</code></p>
+<blockquote>
+<p>A dispatch queue that is bound to the app’s main thread and executes tasks serially on that thread.</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">typedef NSObject&lt;OS_dispatch_queue_main&gt; *dispatch_queue_main_t;</span><br></pre></td></tr></table></figure>
+
+<p>可以看出来<code>OS_dispatch_queue_main</code>是一个类。</p>
+<p>那我们找一找<code>DISPATCH_GLOBAL_OBJECT</code>这个的实现：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">#define DISPATCH_GLOBAL_OBJECT(type, object) ((OS_OBJECT_BRIDGE type)&amp;(object))</span><br></pre></td></tr></table></figure>
+
+<p>这是一个宏定义，内部使用的是一个type类型强转之后与object进行二进制的”&amp;“运算。</p>
+<p>然后看看这两个参数：</p>
+<p><code>dispatch_queue_main_t</code>：</p>
+<blockquote>
+<p>The type of the default queue that is bound to the main thread<br>从字面意思就是把默认线程绑定到主线程。</p>
+</blockquote>
+<p><code>_dispatch_main_q</code>：</p>
+<blockquote>
+<p>Returns the default queue that is bound to the main thread.<br>返回一个绑定了主线程的默认线程。接下来我们通过源码看一下<code>_dispatch_main_q</code>。</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">struct dispatch_queue_static_s _dispatch_main_q &#x3D; &#123;</span><br><span class="line">	DISPATCH_GLOBAL_OBJECT_HEADER(queue_main),</span><br><span class="line">#if !DISPATCH_USE_RESOLVERS</span><br><span class="line">	.do_targetq &#x3D; _dispatch_get_default_queue(true),</span><br><span class="line">#endif</span><br><span class="line">	.dq_state &#x3D; DISPATCH_QUEUE_STATE_INIT_VALUE(1) |</span><br><span class="line">			DISPATCH_QUEUE_ROLE_BASE_ANON,</span><br><span class="line">	.dq_label &#x3D; &quot;com.apple.main-thread&quot;,</span><br><span class="line">	.dq_atomic_flags &#x3D; DQF_THREAD_BOUND | DQF_WIDTH(1),</span><br><span class="line">	.dq_serialnum &#x3D; 1,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>_dispatch_main_q</code>是一个结构体：</p>
+<p><code>dq_label</code>：使用的标签，上方代码中打印出来的东西。<br><code>dq_atomic_flags</code>：是一个flag，DQF_WIDTH(1)表示宽度，1只能通过1个<br><code>dq_serialnum</code>：串行数是1</p>
+<p>知道了两个参数，我们直接使用”&amp;“运算看是否能得到我们想要的主线程。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dispatch_queue_t mainQueue &#x3D; (OS_OBJECT_BRIDGE dispatch_queue_main_t)&amp;(_dispatch_main_q);</span><br></pre></td></tr></table></figure>
+
+<p>得到的这个mainQueue与上方的点结果是一直到。</p>
+<p>接下来我们得验证一下，<code>dispatch_get_main_queue</code>是在main函数之前执行的。在dyld的流程中，我们知道他会执行一个<code>libdispatch_init(void)</code>的操作。在它的内部源码中有如下内容：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">void</span><br><span class="line">libdispatch_init(void)</span><br><span class="line">&#123;</span><br><span class="line">&#x2F;&#x2F; ...</span><br><span class="line">&#x2F;&#x2F; line 7921</span><br><span class="line">#if DISPATCH_USE_RESOLVERS &#x2F;&#x2F; rdar:&#x2F;&#x2F;problem&#x2F;8541707</span><br><span class="line">	_dispatch_main_q.do_targetq &#x3D; _dispatch_get_default_queue(true);</span><br><span class="line">#endif</span><br><span class="line">  &#x2F;&#x2F; 设置当前线程</span><br><span class="line">	_dispatch_queue_set_current(&amp;_dispatch_main_q);</span><br><span class="line">	&#x2F;&#x2F; 绑定线程</span><br><span class="line">	_dispatch_queue_set_bound_thread(&amp;_dispatch_main_q);</span><br><span class="line">&#x2F;&#x2F; ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在第7758行代码，可以看到创建了<code>_dispatch_main_q</code>静态结构体，之后设置当前线程为为主线程，然后进行绑定。</p>
+<h2 id="全局队列"><a href="#全局队列" class="headerlink" title="全局队列"></a>全局队列</h2><p><code>dispatch_get_global_queue(0,0)</code>，为了方便使用，苹果创建了全局队列，全局队列是一个<b>并发队列</b>。</p>
+<p>在使用多线程开发时，如果对队列没有特殊需求，在执行异步任务时，可以直接使用全局队列。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">dispatch_queue_global_t</span><br><span class="line">dispatch_get_global_queue(intptr_t identifier, uintptr_t flags);</span><br></pre></td></tr></table></figure>
+
+<p>这里有两个参数：<br>第一个identifier：表示优先级，与QOS的优先级一一对应。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">DISPATCH_QUEUE_PRIORITY_HIGH        &#x2F;&#x2F; 高</span><br><span class="line">DISPATCH_QUEUE_PRIORITY_DEFAULT     &#x2F;&#x2F; 默认</span><br><span class="line">DISPATCH_QUEUE_PRIORITY_LOW         &#x2F;&#x2F; 低</span><br><span class="line">DISPATCH_QUEUE_PRIORITY_BACKGROUND  &#x2F;&#x2F; BACKGROUND</span><br></pre></td></tr></table></figure>
+
+<p>第二个参数是flag：<br>保留供将来使用的标志。始终将此参数指定为0。</p>
+<p>接下来，查看一下源码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">dispatch_queue_global_t</span><br><span class="line">dispatch_get_global_queue(long priority, unsigned long flags)</span><br><span class="line">&#123;</span><br><span class="line">	dispatch_assert(countof(_dispatch_root_queues) &#x3D;&#x3D;</span><br><span class="line">			DISPATCH_ROOT_QUEUE_COUNT);</span><br><span class="line"></span><br><span class="line">	if (flags &amp; ~(unsigned long)DISPATCH_QUEUE_OVERCOMMIT) &#123;</span><br><span class="line">		return DISPATCH_BAD_INPUT;</span><br><span class="line">	&#125;</span><br><span class="line">	dispatch_qos_t qos &#x3D; _dispatch_qos_from_queue_priority(priority);</span><br><span class="line">#if !HAVE_PTHREAD_WORKQUEUE_QOS</span><br><span class="line">	if (qos &#x3D;&#x3D; QOS_CLASS_MAINTENANCE) &#123;</span><br><span class="line">		qos &#x3D; DISPATCH_QOS_BACKGROUND;</span><br><span class="line">	&#125; else if (qos &#x3D;&#x3D; QOS_CLASS_USER_INTERACTIVE) &#123;</span><br><span class="line">		qos &#x3D; DISPATCH_QOS_USER_INITIATED;</span><br><span class="line">	&#125;</span><br><span class="line">#endif</span><br><span class="line">	if (qos &#x3D;&#x3D; DISPATCH_QOS_UNSPECIFIED) &#123;</span><br><span class="line">		return DISPATCH_BAD_INPUT;</span><br><span class="line">	&#125;</span><br><span class="line">	return _dispatch_get_root_queue(qos, flags &amp; DISPATCH_QUEUE_OVERCOMMIT);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这一坨东西其实都不用看，只需要看到最后<code>return _dispatch_get_root_queue()</code>是这么个东西。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">static inline dispatch_queue_global_t</span><br><span class="line">_dispatch_get_root_queue(dispatch_qos_t qos, bool overcommit)</span><br><span class="line">&#123;</span><br><span class="line">	if (unlikely(qos &lt; DISPATCH_QOS_MIN || qos &gt; DISPATCH_QOS_MAX)) &#123;</span><br><span class="line">		DISPATCH_CLIENT_CRASH(qos, &quot;Corrupted priority&quot;);</span><br><span class="line">	&#125;</span><br><span class="line">	return &amp;_dispatch_root_queues[2 * (qos - 1) + overcommit];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>_dispatch_root_queues[]</code>应该就是一个数组，通过传进来的参数获取对应的queue。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line">struct dispatch_queue_global_s _dispatch_root_queues[] &#x3D; &#123;</span><br><span class="line">&#x2F;&#x2F; ...</span><br><span class="line">  .dq_atomic_flags &#x3D; DQF_WIDTH(DISPATCH_QUEUE_WIDTH_POOL), \</span><br><span class="line">	_DISPATCH_ROOT_QUEUE_ENTRY(MAINTENANCE, 0,</span><br><span class="line">		.dq_label &#x3D; &quot;com.apple.root.maintenance-qos&quot;,</span><br><span class="line">		.dq_serialnum &#x3D; 4,</span><br><span class="line">	),</span><br><span class="line">	_DISPATCH_ROOT_QUEUE_ENTRY(MAINTENANCE, DISPATCH_PRIORITY_FLAG_OVERCOMMIT,</span><br><span class="line">		.dq_label &#x3D; &quot;com.apple.root.maintenance-qos.overcommit&quot;,</span><br><span class="line">		.dq_serialnum &#x3D; 5,</span><br><span class="line">	),</span><br><span class="line">	_DISPATCH_ROOT_QUEUE_ENTRY(BACKGROUND, 0,</span><br><span class="line">		.dq_label &#x3D; &quot;com.apple.root.background-qos&quot;,</span><br><span class="line">		.dq_serialnum &#x3D; 6,</span><br><span class="line">	),</span><br><span class="line">	_DISPATCH_ROOT_QUEUE_ENTRY(BACKGROUND, DISPATCH_PRIORITY_FLAG_OVERCOMMIT,</span><br><span class="line">		.dq_label &#x3D; &quot;com.apple.root.background-qos.overcommit&quot;,</span><br><span class="line">		.dq_serialnum &#x3D; 7,</span><br><span class="line">	),</span><br><span class="line">	_DISPATCH_ROOT_QUEUE_ENTRY(UTILITY, 0,</span><br><span class="line">		.dq_label &#x3D; &quot;com.apple.root.utility-qos&quot;,</span><br><span class="line">		.dq_serialnum &#x3D; 8,</span><br><span class="line">	),</span><br><span class="line">	_DISPATCH_ROOT_QUEUE_ENTRY(UTILITY, DISPATCH_PRIORITY_FLAG_OVERCOMMIT,</span><br><span class="line">		.dq_label &#x3D; &quot;com.apple.root.utility-qos.overcommit&quot;,</span><br><span class="line">		.dq_serialnum &#x3D; 9,</span><br><span class="line">	),</span><br><span class="line">	_DISPATCH_ROOT_QUEUE_ENTRY(DEFAULT, DISPATCH_PRIORITY_FLAG_FALLBACK,</span><br><span class="line">		.dq_label &#x3D; &quot;com.apple.root.default-qos&quot;,</span><br><span class="line">		.dq_serialnum &#x3D; 10,</span><br><span class="line">	),</span><br><span class="line">	_DISPATCH_ROOT_QUEUE_ENTRY(DEFAULT,</span><br><span class="line">			DISPATCH_PRIORITY_FLAG_FALLBACK | DISPATCH_PRIORITY_FLAG_OVERCOMMIT,</span><br><span class="line">		.dq_label &#x3D; &quot;com.apple.root.default-qos.overcommit&quot;,</span><br><span class="line">		.dq_serialnum &#x3D; 11,</span><br><span class="line">	),</span><br><span class="line">	_DISPATCH_ROOT_QUEUE_ENTRY(USER_INITIATED, 0,</span><br><span class="line">		.dq_label &#x3D; &quot;com.apple.root.user-initiated-qos&quot;,</span><br><span class="line">		.dq_serialnum &#x3D; 12,</span><br><span class="line">	),</span><br><span class="line">	_DISPATCH_ROOT_QUEUE_ENTRY(USER_INITIATED, DISPATCH_PRIORITY_FLAG_OVERCOMMIT,</span><br><span class="line">		.dq_label &#x3D; &quot;com.apple.root.user-initiated-qos.overcommit&quot;,</span><br><span class="line">		.dq_serialnum &#x3D; 13,</span><br><span class="line">	),</span><br><span class="line">	_DISPATCH_ROOT_QUEUE_ENTRY(USER_INTERACTIVE, 0,</span><br><span class="line">		.dq_label &#x3D; &quot;com.apple.root.user-interactive-qos&quot;,</span><br><span class="line">		.dq_serialnum &#x3D; 14,</span><br><span class="line">	),</span><br><span class="line">	_DISPATCH_ROOT_QUEUE_ENTRY(USER_INTERACTIVE, DISPATCH_PRIORITY_FLAG_OVERCOMMIT,</span><br><span class="line">		.dq_label &#x3D; &quot;com.apple.root.user-interactive-qos.overcommit&quot;,</span><br><span class="line">		.dq_serialnum &#x3D; 15,</span><br><span class="line">	),</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>我们看到了lable的内容，有我们刚才打印的那个<code>com.apple.root.default-qos</code>。会根据我们设置的优先级返回不同的全局队列。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">dq_atomic_flags &#x3D; DQF_WIDTH(DISPATCH_QUEUE_WIDTH_POOL)</span><br><span class="line"></span><br><span class="line">#define DISPATCH_QUEUE_WIDTH_FULL			0x1000ull</span><br><span class="line">#define DISPATCH_QUEUE_WIDTH_POOL (DISPATCH_QUEUE_WIDTH_FULL - 1)</span><br></pre></td></tr></table></figure>
+
+<p>dq_atomic_flags的值也就是    (0x1000 - 1) = 4095</p>
+<h1 id="dispatch-queue-create-原理"><a href="#dispatch-queue-create-原理" class="headerlink" title="dispatch_queue_create 原理"></a>dispatch_queue_create 原理</h1><p>直奔主题，在源码中查看<code>dispatch_queue_create</code>方法：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">dispatch_queue_t</span><br><span class="line">dispatch_queue_create(const char *label, dispatch_queue_attr_t attr)</span><br><span class="line">&#123;</span><br><span class="line">	return _dispatch_lane_create_with_target(label, attr,</span><br><span class="line">			DISPATCH_TARGET_QUEUE_DEFAULT, true);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里传了两个参数，第一个是标签，表示创建的队列，第二个标识串行还是并发。</p>
+<h2 id="串行：DISPATCH-QUEUE-SERIAL"><a href="#串行：DISPATCH-QUEUE-SERIAL" class="headerlink" title="串行：DISPATCH_QUEUE_SERIAL"></a>串行：DISPATCH_QUEUE_SERIAL</h2><p>我们看一下源码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">#define DISPATCH_QUEUE_SERIAL NULL</span><br></pre></td></tr></table></figure>
+
+<p>所以，通常情况下，我们在创建串行队列时，也会使用<code>NULL</code>来替换。</p>
+<h2 id="并发：DISPATCH-QUEUE-CONCURRENT"><a href="#并发：DISPATCH-QUEUE-CONCURRENT" class="headerlink" title="并发：DISPATCH_QUEUE_CONCURRENT"></a>并发：DISPATCH_QUEUE_CONCURRENT</h2><p>我们看一下源码实现：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">#define DISPATCH_QUEUE_CONCURRENT \</span><br><span class="line">		DISPATCH_GLOBAL_OBJECT(dispatch_queue_attr_t, \</span><br><span class="line">		_dispatch_queue_attr_concurrent)</span><br></pre></td></tr></table></figure>
+
+<p>这里有一个<code>DISPATCH_GLOBAL_OBJECT()</code>函数，在主队列中已经介绍过了（通过&amp;运算）。</p>
+<p><code>_dispatch_lane_create_with_target</code>这个函数中，我们发现很长很难懂，那我们就通过多年的编程经验，看它返回的时候一个什么东西，然后看这个是怎么创建的。下面的代码是经过删减的，有需要的自行查看源码。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line">static dispatch_queue_t</span><br><span class="line">_dispatch_lane_create_with_target(const char *label, dispatch_queue_attr_t dqa,</span><br><span class="line">		dispatch_queue_t tq, bool legacy)</span><br><span class="line">&#123;</span><br><span class="line">	&#x2F;&#x2F; 1. 创建 dqai</span><br><span class="line">	dispatch_queue_attr_info_t dqai &#x3D; _dispatch_queue_attr_to_info(dqa);</span><br><span class="line">	&#x2F;&#x2F; ...</span><br><span class="line">	&#x2F;&#x2F; 2. 创建vtable</span><br><span class="line">	const void *vtable;</span><br><span class="line">	dispatch_queue_flags_t dqf &#x3D; legacy ? DQF_MUTABLE : 0;</span><br><span class="line">	if (dqai.dqai_concurrent) &#123;</span><br><span class="line">		&#x2F;&#x2F; OS_dispatch_queue_concurrent</span><br><span class="line">		vtable &#x3D; DISPATCH_VTABLE(queue_concurrent);</span><br><span class="line">	&#125; else &#123;</span><br><span class="line">		vtable &#x3D; DISPATCH_VTABLE(queue_serial);</span><br><span class="line">	&#125;</span><br><span class="line">	&#x2F;&#x2F; ...</span><br><span class="line">	&#x2F;&#x2F; 3. label赋值</span><br><span class="line">	if (label) &#123;</span><br><span class="line">		const char *tmp &#x3D; _dispatch_strdup_if_mutable(label);</span><br><span class="line">		if (tmp !&#x3D; label) &#123;</span><br><span class="line">			dqf |&#x3D; DQF_LABEL_NEEDS_FREE;</span><br><span class="line">			label &#x3D; tmp;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	&#x2F;&#x2F; 4. dq alloc分配内存空间</span><br><span class="line">	dispatch_lane_t dq &#x3D; _dispatch_object_alloc(vtable,</span><br><span class="line">			sizeof(struct dispatch_lane_s)); </span><br><span class="line">	&#x2F;&#x2F; 5. dq init操作</span><br><span class="line">	_dispatch_queue_init(dq, dqf, dqai.dqai_concurrent ?</span><br><span class="line">			DISPATCH_QUEUE_WIDTH_MAX : 1, DISPATCH_QUEUE_ROLE_INNER |</span><br><span class="line">			(dqai.dqai_inactive ? DISPATCH_QUEUE_INACTIVE : 0)); &#x2F;&#x2F; init</span><br><span class="line">  &#x2F;&#x2F; 6. 对dq进行赋值</span><br><span class="line">	dq-&gt;dq_label &#x3D; label;</span><br><span class="line">	dq-&gt;dq_priority &#x3D; _dispatch_priority_make((dispatch_qos_t)dqai.dqai_qos,</span><br><span class="line">			dqai.dqai_relpri);</span><br><span class="line">	if (overcommit &#x3D;&#x3D; _dispatch_queue_attr_overcommit_enabled) &#123;</span><br><span class="line">		dq-&gt;dq_priority |&#x3D; DISPATCH_PRIORITY_FLAG_OVERCOMMIT;</span><br><span class="line">	&#125;</span><br><span class="line">	if (!dqai.dqai_inactive) &#123;</span><br><span class="line">		_dispatch_queue_priority_inherit_from_target(dq, tq);</span><br><span class="line">		_dispatch_lane_inherit_wlh_from_target(dq, tq);</span><br><span class="line">	&#125;</span><br><span class="line">	_dispatch_retain(tq);</span><br><span class="line">	dq-&gt;do_targetq &#x3D; tq;</span><br><span class="line">	_dispatch_object_debug(dq, &quot;%s&quot;, __func__);</span><br><span class="line">	return _dispatch_trace_queue_create(dq)._dq;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="创建dqai"><a href="#创建dqai" class="headerlink" title="创建dqai"></a>创建dqai</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">dispatch_queue_attr_info_t</span><br><span class="line">_dispatch_queue_attr_to_info(dispatch_queue_attr_t dqa)</span><br><span class="line">&#123;</span><br><span class="line">	dispatch_queue_attr_info_t dqai &#x3D; &#123; &#125;;</span><br><span class="line"></span><br><span class="line">	if (!dqa) return dqai;</span><br><span class="line"></span><br><span class="line">#if DISPATCH_VARIANT_STATIC</span><br><span class="line">	if (dqa &#x3D;&#x3D; &amp;_dispatch_queue_attr_concurrent) &#123; &#x2F;&#x2F; null 默认</span><br><span class="line">		dqai.dqai_concurrent &#x3D; true;</span><br><span class="line">		return dqai;</span><br><span class="line">	&#125;</span><br><span class="line">#endif</span><br><span class="line">    &#x2F;&#x2F; ...</span><br><span class="line">    return dqai;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>还记得我们在创建队列时传的参数吗？第一个是label，第二个是串行还是并发。</p>
+<p>这个dqai会判断当前是串行还是并发，并对<code>dqai.dqai_concurrent = true;</code>进行赋值。</p>
+<h2 id="创建-vtable"><a href="#创建-vtable" class="headerlink" title="创建 vtable"></a>创建 vtable</h2><p><code>vtable</code>会根据当前是串行还是并发进行创建，我们一步一步的追寻<code>vtable</code>是什么。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">#if OS_OBJECT_HAVE_OBJC2</span><br><span class="line">#define DISPATCH_VTABLE(name) DISPATCH_OBJC_CLASS(name)</span><br><span class="line">#define DISPATCH_OBJC_CLASS(name) (&amp;DISPATCH_CLASS_SYMBOL(name))</span><br><span class="line">#define DISPATCH_CLASS_SYMBOL(name) OS_dispatch_##name##_class</span><br><span class="line">#elif</span><br><span class="line">...</span><br><span class="line">#end</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">if (dqai.dqai_concurrent) &#123;</span><br><span class="line">	&#x2F;&#x2F; OS_dispatch_queue_concurrent</span><br><span class="line">	vtable &#x3D; DISPATCH_VTABLE(queue_concurrent);</span><br><span class="line">&#125; else &#123;</span><br><span class="line">	vtable &#x3D; DISPATCH_VTABLE(queue_serial);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>通过源码发现，<code>vtable</code>就是一个类。最后生成的就是<code>OS_dispatch_##name##_class</code>。</p>
+<p><code>##name##</code>就是创建<code>vtable</code>时的参数，就会生成对应的<code>OS_dispatch_queue_serial_class</code>和<code>OS_dispatch_queue_concurrent_class</code>。</p>
+<h2 id="label赋值"><a href="#label赋值" class="headerlink" title="label赋值"></a>label赋值</h2><p>这个就是创建时传入的那个label标签的内容。</p>
+<h2 id="dq-alloc分配内存空间"><a href="#dq-alloc分配内存空间" class="headerlink" title="dq alloc分配内存空间"></a>dq alloc分配内存空间</h2><p>这里执行了alloc操作，开始分配内存空间。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">dispatch_lane_t dq &#x3D; _dispatch_object_alloc(vtable,</span><br><span class="line">			sizeof(struct dispatch_lane_s)); </span><br><span class="line">			</span><br><span class="line">			</span><br><span class="line">void *</span><br><span class="line">_dispatch_object_alloc(const void *vtable, size_t size)</span><br><span class="line">&#123;</span><br><span class="line">&#x2F;&#x2F; 这个是在mac下执行</span><br><span class="line">#if OS_OBJECT_HAVE_OBJC1</span><br><span class="line">...</span><br><span class="line">#else</span><br><span class="line">	&#x2F;&#x2F; 这里分配内存，isa指向</span><br><span class="line">	return _os_object_alloc_realized(vtable, size);</span><br><span class="line">#endif</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>真正的alloc操作是在这里执行的。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">inline _os_object_t</span><br><span class="line">_os_object_alloc_realized(const void *cls, size_t size)</span><br><span class="line">&#123;</span><br><span class="line">	_os_object_t obj;</span><br><span class="line">	dispatch_assert(size &gt;&#x3D; sizeof(struct _os_object_s));</span><br><span class="line">	&#x2F;&#x2F; 开辟空间</span><br><span class="line">	while (unlikely(!(obj &#x3D; calloc(1u, size)))) &#123;</span><br><span class="line">	&#x2F;&#x2F; 执行的都是likely的操作，所以不会走这里，这里也没有意义，内部是sleep操作</span><br><span class="line">		_dispatch_temporary_resource_shortage();</span><br><span class="line">	&#125;</span><br><span class="line">	&#x2F;&#x2F; isa指向</span><br><span class="line">	obj-&gt;os_obj_isa &#x3D; cls;</span><br><span class="line">	return obj;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="dq-init操作"><a href="#dq-init操作" class="headerlink" title="dq init操作"></a>dq init操作</h2><p>alloc之后，执行init操作。</p>
+<p>初始化的时候会判断当前要生成并发还是串行队列，并发的话，个数是<code>DISPATCH_QUEUE_WIDTH_MAX</code>，串行是1，就是开辟的最大任务数。</p>
+<h2 id="对dq进行赋值"><a href="#对dq进行赋值" class="headerlink" title="对dq进行赋值"></a>对dq进行赋值</h2><p>比如lable标签、overcommit，priority等赋值。同时绑定target。</p>
+<h2 id="最后return"><a href="#最后return" class="headerlink" title="最后return"></a>最后return</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">return _dispatch_trace_queue_create(dq)._dq;</span><br></pre></td></tr></table></figure>
+
+<p>这里看源码都是最后返回的都是dq对应的数据。</p>
+<h1 id="dispatch-async-源码"><a href="#dispatch-async-源码" class="headerlink" title="dispatch_async 源码"></a>dispatch_async 源码</h1><p>我们接下来看一下异步并发队列函数的源码。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">dispatch_async(conque, ^&#123;</span><br><span class="line">    NSLog(@&quot;12334&quot;);</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">void</span><br><span class="line">dispatch_async(dispatch_queue_t queue, dispatch_block_t block);</span><br><span class="line"></span><br><span class="line">void</span><br><span class="line">dispatch_async(dispatch_queue_t dq, dispatch_block_t work)</span><br><span class="line">&#123;</span><br><span class="line">	dispatch_continuation_t dc &#x3D; _dispatch_continuation_alloc();</span><br><span class="line">	uintptr_t dc_flags &#x3D; DC_FLAG_CONSUME;</span><br><span class="line">	dispatch_qos_t qos;</span><br><span class="line">  &#x2F;&#x2F; 任务包装器，只有这里有对work的操作</span><br><span class="line">	qos &#x3D; _dispatch_continuation_init(dc, dq, work, 0, dc_flags);</span><br><span class="line">	_dispatch_continuation_async(dq, dc, qos, dc-&gt;dc_flags);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>dispatch_async()</code>函数内部会执行<code>_dispatch_continuation_init</code>，这个是函数中的重点。看一下源码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">static inline dispatch_qos_t</span><br><span class="line">_dispatch_continuation_init(dispatch_continuation_t dc,</span><br><span class="line">		dispatch_queue_class_t dqu, dispatch_block_t work,</span><br><span class="line">		dispatch_block_flags_t flags, uintptr_t dc_flags)</span><br><span class="line">&#123;</span><br><span class="line">&#x2F;&#x2F; 1. work就是外部的block，这里ctxt是对block的一个copy操作</span><br><span class="line">	void *ctxt &#x3D; _dispatch_Block_copy(work);</span><br><span class="line"></span><br><span class="line">	dc_flags |&#x3D; DC_FLAG_BLOCK | DC_FLAG_ALLOCATED;</span><br><span class="line">	if (unlikely(_dispatch_block_has_private_data(work))) &#123;</span><br><span class="line">    	&#x2F;&#x2F; dc_flags赋值	</span><br><span class="line">		dc-&gt;dc_flags &#x3D; dc_flags;</span><br><span class="line">		&#x2F;&#x2F; block赋值到dc_ctxt中</span><br><span class="line">		dc-&gt;dc_ctxt &#x3D; ctxt;</span><br><span class="line">		&#x2F;&#x2F; will initialize all fields but requires dc_flags &amp; dc_ctxt to be set</span><br><span class="line">		return _dispatch_continuation_init_slow(dc, dqu, flags);</span><br><span class="line">	&#125;</span><br><span class="line">  &#x2F;&#x2F; 所以会走这里，func可以理解为work的方法名。</span><br><span class="line">	dispatch_function_t func &#x3D; _dispatch_Block_invoke(work);</span><br><span class="line">	if (dc_flags &amp; DC_FLAG_CONSUME) &#123;</span><br><span class="line">	   &#x2F;&#x2F; 设置方法</span><br><span class="line">		func &#x3D; _dispatch_call_block_and_release;</span><br><span class="line">	&#125;</span><br><span class="line">	&#x2F;&#x2F; 这里又是重点内容</span><br><span class="line">	return _dispatch_continuation_init_f(dc, dqu, ctxt, func, flags, dc_flags);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们进一步查看<code>_dispatch_continuation_init_f</code>源码，其内部主要是为了保存block</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">static inline dispatch_qos_t</span><br><span class="line">_dispatch_continuation_init_f(dispatch_continuation_t dc,</span><br><span class="line">		dispatch_queue_class_t dqu, void *ctxt, dispatch_function_t f,</span><br><span class="line">		dispatch_block_flags_t flags, uintptr_t dc_flags)</span><br><span class="line">&#123;</span><br><span class="line">  &#x2F;&#x2F; 默认优先级0</span><br><span class="line">	pthread_priority_t pp &#x3D; 0;</span><br><span class="line">	&#x2F;&#x2F; 设置dc_flags</span><br><span class="line">	dc-&gt;dc_flags &#x3D; dc_flags | DC_FLAG_ALLOCATED;</span><br><span class="line">	&#x2F;&#x2F; 设置方法</span><br><span class="line">	dc-&gt;dc_func &#x3D; f;</span><br><span class="line">	&#x2F;&#x2F; 方法实现。</span><br><span class="line">	dc-&gt;dc_ctxt &#x3D; ctxt;</span><br><span class="line">	&#x2F;&#x2F; 设置优先级</span><br><span class="line">	if (!(flags &amp; DISPATCH_BLOCK_HAS_PRIORITY)) &#123;</span><br><span class="line">		pp &#x3D; _dispatch_priority_propagate();</span><br><span class="line">	&#125;</span><br><span class="line">	_dispatch_continuation_voucher_set(dc, flags);</span><br><span class="line">	&#x2F;&#x2F; 对block调用的优先级处理</span><br><span class="line">	return _dispatch_continuation_priority_set(dc, dqu, pp, flags);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>以上内容呢，是<code>qos = _dispatch_continuation_init(dc, dq, work, 0, dc_flags);</code>的内部实现，接下来我们再看下一句代码<br><code>_dispatch_continuation_async</code>。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">static inline void</span><br><span class="line">_dispatch_continuation_async(dispatch_queue_class_t dqu,</span><br><span class="line">		dispatch_continuation_t dc, dispatch_qos_t qos, uintptr_t dc_flags)</span><br><span class="line">&#123;</span><br><span class="line">#if DISPATCH_INTROSPECTION</span><br><span class="line">	if (!(dc_flags &amp; DC_FLAG_NO_INTROSPECTION)) &#123;</span><br><span class="line">		_dispatch_trace_item_push(dqu, dc);</span><br><span class="line">	&#125;</span><br><span class="line">#else</span><br><span class="line">	(void)dc_flags;</span><br><span class="line">#endif</span><br><span class="line">	return dx_push(dqu._dq, dc, qos);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里主要执行的就是<code>dx_push</code>。我们全局搜了一下，它是一个宏。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">#define dx_push(x, y, z) dx_vtable(x)-&gt;dq_push(x, y, z)</span><br></pre></td></tr></table></figure>
+
+<p>接下来，就有点迷茫了，<code>dq_push</code>是个什么鬼东西？全局搜一下。</p>
+<p><img src="dq_push.jpg" alt=""></p>
+<p>我们发现，dq_push的内容是根据当前类型赋值的，比如是串行，那就是一个<code>_dispatch_lane_push</code>，我们这里使用的并发队列，所以，应该执行的是<code>_dispatch_lane_concurrent_push</code>。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">void</span><br><span class="line">_dispatch_lane_concurrent_push(dispatch_lane_t dq, dispatch_object_t dou,</span><br><span class="line">		dispatch_qos_t qos)</span><br><span class="line">&#123;</span><br><span class="line">  &#x2F;&#x2F; 一堆条件判断</span><br><span class="line">	if (dq-&gt;dq_items_tail &#x3D;&#x3D; NULL &amp;&amp;</span><br><span class="line">			!_dispatch_object_is_waiter(dou) &amp;&amp;</span><br><span class="line">			!_dispatch_object_is_barrier(dou) &amp;&amp;</span><br><span class="line">			_dispatch_queue_try_acquire_async(dq)) &#123;</span><br><span class="line">		&#x2F;&#x2F; 我们先看看这个东西</span><br><span class="line">		return _dispatch_continuation_redirect_push(dq, dou, qos);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; 最后会执行到这里。</span><br><span class="line">	_dispatch_lane_push(dq, dou, qos);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>经过一系列判断，执行到<code>_dispatch_continuation_redirect_push</code>.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">static void</span><br><span class="line">_dispatch_continuation_redirect_push(dispatch_lane_t dl,</span><br><span class="line">		dispatch_object_t dou, dispatch_qos_t qos)</span><br><span class="line">&#123;</span><br><span class="line">	if (likely(!_dispatch_object_is_redirection(dou))) &#123;</span><br><span class="line">	   &#x2F;&#x2F; 这里会生成_dc，内部就不细说了，主要是为了绑定block，target</span><br><span class="line">		dou._dc &#x3D; _dispatch_async_redirect_wrap(dl, dou);</span><br><span class="line">	&#125; else if (!dou._dc-&gt;dc_ctxt) &#123;</span><br><span class="line">	   &#x2F;&#x2F; 如果没有实现，赋值一个</span><br><span class="line">		dou._dc-&gt;dc_ctxt &#x3D; (void *)</span><br><span class="line">		(uintptr_t)_dispatch_queue_autorelease_frequency(dl);</span><br><span class="line">	&#125;</span><br><span class="line">   &#x2F;&#x2F; 这里指向target</span><br><span class="line">	dispatch_queue_t dq &#x3D; dl-&gt;do_targetq;</span><br><span class="line">	if (!qos) qos &#x3D; _dispatch_priority_qos(dq-&gt;dq_priority);</span><br><span class="line">	&#x2F;&#x2F; 又来了一个dx_push</span><br><span class="line">	dx_push(dq, dou, qos);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>看到这里就有疑惑了，上一步刚执行了`dx_push·，怎么这里有来了一个？</p>
+<p>其实就好比Person继承自NSObject，比如实现init方法，会通过isa指向父类，调用父类的方法，这里也是一样的，通过do_targetq指向父类，执行父类的方法。父类就是<code>_dispatch_root_queue_push</code>。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">void</span><br><span class="line">_dispatch_root_queue_push(dispatch_queue_global_t rq, dispatch_object_t dou,</span><br><span class="line">		dispatch_qos_t qos)</span><br><span class="line">&#123;</span><br><span class="line">#if DISPATCH_USE_KEVENT_WORKQUEUE</span><br><span class="line">	dispatch_deferred_items_t ddi &#x3D; _dispatch_deferred_items_get();</span><br><span class="line">	&#x2F;&#x2F; 这里不是重点内容，不需要看</span><br><span class="line">	if (unlikely(ddi &amp;&amp; ddi-&gt;ddi_can_stash)) &#123;...&#125;</span><br><span class="line">#endif</span><br><span class="line">#if HAVE_PTHREAD_WORKQUEUE_QOS</span><br><span class="line">	if (_dispatch_root_queue_push_needs_override(rq, qos)) &#123;</span><br><span class="line">		return _dispatch_root_queue_push_override(rq, dou, qos);</span><br><span class="line">	&#125;</span><br><span class="line">#else</span><br><span class="line">	(void)qos;</span><br><span class="line">#endif</span><br><span class="line">	_dispatch_root_queue_push_inline(rq, dou, dou, 1);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>重点也就是在<code>_dispatch_root_queue_push_inline</code>。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">static inline void</span><br><span class="line">_dispatch_root_queue_push_inline(dispatch_queue_global_t dq,</span><br><span class="line">		dispatch_object_t _head, dispatch_object_t _tail, int n)</span><br><span class="line">&#123;</span><br><span class="line">	struct dispatch_object_s *hd &#x3D; _head._do, *tl &#x3D; _tail._do;</span><br><span class="line">	if (unlikely(os_mpsc_push_list(os_mpsc(dq, dq_items), hd, tl, do_next))) &#123;</span><br><span class="line">		return _dispatch_root_queue_poke(dq, n, 0);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在这个函数内部执行<code>_dispatch_root_queue_poke</code>，这个函数内部其实也就是一个<code>_dispatch_root_queue_poke_slow</code>方法。是整个dispatch中相当重要的一环。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">static void</span><br><span class="line">_dispatch_root_queue_poke_slow(dispatch_queue_global_t dq, int n, int floor) &#123;</span><br><span class="line">...</span><br><span class="line">&#x2F;&#x2F; 这里执行跟类queue的初始化，内部是一个dispatch_once，只会初始化一次。单利，下一章介绍</span><br><span class="line">_dispatch_root_queues_init();</span><br><span class="line">...</span><br><span class="line">&#x2F;&#x2F; 如果是Global类型的函数，直接返回了。</span><br><span class="line">if (dx_type(dq) &#x3D;&#x3D; DISPATCH_QUEUE_GLOBAL_ROOT_TYPE)</span><br><span class="line">#endif</span><br><span class="line">	&#123;</span><br><span class="line">		_dispatch_root_queue_debug(&quot;requesting new worker thread for global &quot;</span><br><span class="line">				&quot;queue: %p&quot;, dq);</span><br><span class="line">		r &#x3D; _pthread_workqueue_addthreads(remaining,</span><br><span class="line">				_dispatch_priority_to_pp_prefer_fallback(dq-&gt;dq_priority));</span><br><span class="line">		(void)dispatch_assume_zero(r);</span><br><span class="line">		return;</span><br><span class="line">	&#125;</span><br><span class="line">...</span><br><span class="line">&#x2F;&#x2F; 这中间省略的代码是判断remaining数，也就是需要创建的线程数。</span><br><span class="line">do &#123;</span><br><span class="line">		_dispatch_retain(dq); &#x2F;&#x2F; released in _dispatch_worker_thread</span><br><span class="line">		&#x2F;&#x2F; 循环创建线程</span><br><span class="line">		while ((r &#x3D; pthread_create(pthr, attr, _dispatch_worker_thread, dq))) &#123;</span><br><span class="line">			if (r !&#x3D; EAGAIN) &#123;</span><br><span class="line">				(void)dispatch_assume_zero(r);</span><br><span class="line">			&#125;</span><br><span class="line">			_dispatch_temporary_resource_shortage();</span><br><span class="line">		&#125;</span><br><span class="line">	&#125; while (--remaining);</span><br><span class="line">...</span><br><span class="line">&#125; while (!os_atomic_cmpxchgv2o(dq, dgq_thread_pool_size, t_count,</span><br><span class="line">			t_count - remaining, &amp;t_count, acquire));</span><br></pre></td></tr></table></figure>
+
+<p>这个是GCD内部相当重点的一个点，首先进行root_queues的初始化，然后创建线程来执行任务。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">_dispatch_root_queues_init();</span><br><span class="line"></span><br><span class="line">_dispatch_root_queues_init(void)</span><br><span class="line">&#123;</span><br><span class="line">	dispatch_once_f(&amp;_dispatch_root_queues_pred, NULL,</span><br><span class="line">			_dispatch_root_queues_init_once);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>初始化函数内部调用的<code>dispatch_once_f</code>，只会执行一次，这一内容，下一章会有介绍。<code>_dispatch_root_queues_init_once</code>重点要看的是这个内部是个啥。</p>
+<p><code>_dispatch_root_queues_init_once</code>的内部实现代码就不放出来了，太长了，主要的作用就是创建与线程直接的依赖，同时关联线程的回调方法<code>_dispatch_worker_thread2</code>。</p>
+<p>root_queues初始化完成之后，再创建线程，但是内部是怎么调用block实现的，下一章有介绍。</p>
+<p>接下来，我们返回到<code>_dispatch_lane_concurrent_push</code>这里，也就是连续的<code>dq_push</code>之后，最终会执行<code>_dispatch_lane_push</code>。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">void</span><br><span class="line">_dispatch_lane_push(dispatch_lane_t dq, dispatch_object_t dou,</span><br><span class="line">		dispatch_qos_t qos)</span><br><span class="line">&#123;</span><br><span class="line">	dispatch_wakeup_flags_t flags &#x3D; 0;</span><br><span class="line">	struct dispatch_object_s *prev;</span><br><span class="line"></span><br><span class="line">	if (unlikely(_dispatch_object_is_waiter(dou))) &#123;</span><br><span class="line">		return _dispatch_lane_push_waiter(dq, dou._dsc, qos);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	dispatch_assert(!_dispatch_object_is_global(dq));</span><br><span class="line">	qos &#x3D; _dispatch_queue_push_qos(dq, qos);</span><br><span class="line">  </span><br><span class="line">  ...</span><br><span class="line">  </span><br><span class="line">	os_mpsc_push_update_prev(os_mpsc(dq, dq_items), prev, dou._do, do_next);</span><br><span class="line">	if (flags) &#123;</span><br><span class="line">	  &#x2F;&#x2F; 这里的重点是wakeup</span><br><span class="line">		return dx_wakeup(dq, qos, flags);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>而dx_wakeup与dx_push如出一辙，都是宏定义，根据当前队列进行赋值，这里就不细说了，直接选择root类型的方法。</p>
+<p>由于代码巨大，这里直接放了截图。</p>
+<p><img src="wakeup.jpg" alt=""></p>
+<p>最后执行的是wakeup，要保持线程是清醒的，其实就是为了保活。直到block执行完毕。没有target没有上一层之后，执行release操作。</p>
+<p>这个也就是dispatch_async的实现。下一章会继续block是如何调用的。</p>
+<h1 id="总结-1"><a href="#总结-1" class="headerlink" title="总结"></a>总结</h1><ol>
+<li><p>GCD的介绍</p>
+</li>
+<li><p>同步、异步函数的介绍</p>
+</li>
+<li><p>串行队列、并发队列</p>
+</li>
+<li><p>函数与队列的4种组合，以及面试题</p>
+<ol>
+<li>并发不会等待一个任务执行完成才执行。</li>
+<li>串行会等待一个任务执行完毕才执行。</li>
+<li>异步函数下，不管是串行队列还是并行队列，都不影响block块之外的任务执。因为block内部是在新开启的线程中执行的。</li>
+<li>同步函数下，并行队列不受影响，因为并行不需要等待上一个任务执行完成。如果是串行队列，那在当前线程下会发生死锁。</li>
+</ol>
+</li>
+<li><p>主队列dispatch_get_main_queue，全局队列dispatch_get_global_queue内部实现</p>
+</li>
+<li><p>dispatch_queue_create创建一个队列的原理</p>
+</li>
+<li><p>dispatch_async内部实现，异步会创建线程，然后进行weakup保活操作，block执行完成之后进行释放。</p>
+</li>
+</ol>
+<h1 id="引用"><a href="#引用" class="headerlink" title="引用"></a>引用</h1><p><a href="https://opensource.apple.com/tarballs/libdispatch/" target="_blank" rel="noopener">libdispatch源文件</a><br>这里是用的是libdispatch-1271.40.12.tar.gz文件。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Objective-C/" rel="tag"># Objective-C,</a>
+              <a href="/tags/iOS/" rel="tag"># iOS</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/05/10/%E9%80%86%E5%90%91/Hash/" rel="prev" title="Hash">
+      <i class="fa fa-chevron-left"></i> Hash
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/05/12/OC%E5%8E%9F%E7%90%86/GCD-2/" rel="next" title="GCD底层原理-2">
+      GCD底层原理-2 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#GCD简介"><span class="nav-number">1.</span> <span class="nav-text">GCD简介</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#GCD的优势"><span class="nav-number">1.1.</span> <span class="nav-text">GCD的优势</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#同步和异步函数"><span class="nav-number">1.2.</span> <span class="nav-text">同步和异步函数</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#同步dispatch-sync"><span class="nav-number">1.2.1.</span> <span class="nav-text">同步dispatch_sync</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#异步-dispatch-async"><span class="nav-number">1.2.2.</span> <span class="nav-text">异步 dispatch_async</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#队列"><span class="nav-number">1.3.</span> <span class="nav-text">队列</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#函数与队列"><span class="nav-number">1.4.</span> <span class="nav-text">函数与队列</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#同步函数-串行队列"><span class="nav-number">1.4.1.</span> <span class="nav-text">同步函数 + 串行队列</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#同步函数-并发队列"><span class="nav-number">1.4.2.</span> <span class="nav-text">同步函数 + 并发队列</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#异步函数-串行队列"><span class="nav-number">1.4.3.</span> <span class="nav-text">异步函数 + 串行队列</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#异步函数-并发队列"><span class="nav-number">1.4.4.</span> <span class="nav-text">异步函数 + 并发队列</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#函数队列的面试题"><span class="nav-number">1.5.</span> <span class="nav-text">函数队列的面试题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#异步并发队列"><span class="nav-number">1.5.1.</span> <span class="nav-text">异步并发队列</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#异步串行队列"><span class="nav-number">1.5.2.</span> <span class="nav-text">异步串行队列</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#并发队列-异步同步嵌套"><span class="nav-number">1.5.3.</span> <span class="nav-text">并发队列 异步同步嵌套</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#串行-异步同步嵌套"><span class="nav-number">1.5.4.</span> <span class="nav-text">串行 异步同步嵌套</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结"><span class="nav-number">1.5.5.</span> <span class="nav-text">总结</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#主队列-amp-全局队列"><span class="nav-number">2.</span> <span class="nav-text">主队列 &amp; 全局队列</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#主队列"><span class="nav-number">2.1.</span> <span class="nav-text">主队列</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#全局队列"><span class="nav-number">2.2.</span> <span class="nav-text">全局队列</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#dispatch-queue-create-原理"><span class="nav-number">3.</span> <span class="nav-text">dispatch_queue_create 原理</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#串行：DISPATCH-QUEUE-SERIAL"><span class="nav-number">3.1.</span> <span class="nav-text">串行：DISPATCH_QUEUE_SERIAL</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#并发：DISPATCH-QUEUE-CONCURRENT"><span class="nav-number">3.2.</span> <span class="nav-text">并发：DISPATCH_QUEUE_CONCURRENT</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#创建dqai"><span class="nav-number">3.3.</span> <span class="nav-text">创建dqai</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#创建-vtable"><span class="nav-number">3.4.</span> <span class="nav-text">创建 vtable</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#label赋值"><span class="nav-number">3.5.</span> <span class="nav-text">label赋值</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#dq-alloc分配内存空间"><span class="nav-number">3.6.</span> <span class="nav-text">dq alloc分配内存空间</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#dq-init操作"><span class="nav-number">3.7.</span> <span class="nav-text">dq init操作</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#对dq进行赋值"><span class="nav-number">3.8.</span> <span class="nav-text">对dq进行赋值</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#最后return"><span class="nav-number">3.9.</span> <span class="nav-text">最后return</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#dispatch-async-源码"><span class="nav-number">4.</span> <span class="nav-text">dispatch_async 源码</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#总结-1"><span class="nav-number">5.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#引用"><span class="nav-number">6.</span> <span class="nav-text">引用</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="不会飞的小白"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">不会飞的小白</p>
+  <div class="site-description" itemprop="description">一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">29</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">15</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liujiaboy" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liujiaboy" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:alan129@163.com" title="E-Mail → mailto:alan129@163.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/u/1768698000" title="Weibo → https:&#x2F;&#x2F;weibo.com&#x2F;u&#x2F;1768698000" rel="noopener" target="_blank"><i class="fa fa-fw fa-weibo"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i></a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">不会飞的小白</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.2.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v7.7.2
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  
+  <script color='0,0,255' opacity='0.5' zIndex='-1' count='99' src="/lib/canvas-nest/canvas-nest.min.js"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
