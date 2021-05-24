@@ -14,6 +14,16 @@ categories:
 
 Block分为 Malloc Block、 Stack Block、Global Block，但是怎么做区分呢？
 
+在 ARC下:
+
+* 只要没有访问外部变量（或者访问的是全局变量，静态变量），就是全局block
+
+* 如果访问了外部变量，在block声明的时候是stack block，在执行了copy之后就是malloc block
+
+* 执行过copy操作的（全局block除外），是malloc block
+
+结论放这里，可以试一下哈。stack block在下面的章节中有提到过。iOS14之后对stack block做了处理。
+
 
 # 循环引用
 
@@ -995,3 +1005,5 @@ void _Block_release(const void *arg) {
 * block的的内部实现
 * block调用外部变量
 * __block修饰的变量
+
+
