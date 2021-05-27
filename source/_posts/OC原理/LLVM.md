@@ -1,5 +1,5 @@
 ---
-title: LLVM
+title: LLVM-编译流程
 date: 2021-05-24 21:41:15
 tags:
     - Objective-C,
@@ -238,7 +238,169 @@ FunctionDecl 0x7fc57905a460 <line:13:1, line:18:1> line:13:5 main 'int (int, con
 
 ### 生成中级代码IR
 
-### 啊
+完成以上步骤后，就开始生成中间代码IR了，代码生成器（Code Generation）会将语法树自顶向下遍历逐步翻译成LLVM IR。
+
+可以通过下面命令生成`xx.ll`的文本文件，也就是IR代码。
+
+```
+// 默认不优化
+$ clang -S -fobjc-arc -emit-llvm main.m
+
+// IR文件的优化，在Xcode中target - build setting -optimization level可以设置。
+// LLVM的优化登记分别为 -O0、 -O1 、-O2、-O3、-Os（第一个字母为大写O）
+clang -Os -S -fobjc-arc -emit-llvm main.m -o main.ll
+```
+
+以下是`IR`的基本语法：
+
+```
+@ 全局标识
+% 局部标识
+alloca 开辟空间
+align 内存对齐
+i32 32bit，4个字节
+store 写入内存
+load 读取数据
+call 调用函数
+ret 返回
+```
+
+编译之后的IR代码如下：
+
+```
+define i32 @main(i32 %0, i8** %1) #0 {
+  %3 = alloca i32, align 4
+  %4 = alloca i32, align 4
+  %5 = alloca i8**, align 8
+  %6 = alloca i32, align 4
+  %7 = alloca i32, align 4
+  store i32 0, i32* %3, align 4
+  store i32 %0, i32* %4, align 4
+  store i8** %1, i8*** %5, align 8
+  store i32 1, i32* %6, align 4
+  store i32 2, i32* %7, align 4
+  %8 = load i32, i32* %6, align 4
+  %9 = load i32, i32* %7, align 4
+  %10 = add nsw i32 %8, %9
+  %11 = add nsw i32 %10, 3
+  %12 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str, i64 0, i64 0), i32 %11)
+  ret i32 0
+}
+```
+
+优化后生成的代码就不放了，自己看吧。
+
+#### bitcode
+
+在Xcode7以后，开启了bitcode，苹果会做进一步的优化，生成`.bc`的中间代码。
+
+```
+$ clang -emit-llvm -c main.ll -o main.bc
+```
+
+### 后端
+
+LLVM在后端主要是会通过一个个的Pass去优化，每个Pass做一些事情，最终生成汇编代码。
+
+按照整个llvm的流程，是通过`.ll`文件生成汇编文件：
+
+```
+$ clang -S -fobjc-arc main.ll -o main.s
+```
+
+我们也可以直接使用源文件生成汇编代码：
+
+```
+$ clang -Os -S -fobjc-arc main.m -o main.s
+```
+
+这里需要注意的是，在上一步中优化后得到的汇编代码与直接使用优化得到的汇编代码是一样的。
+
+### 生成目标文件
+
+目标文件的生成，是汇编器以汇编代码作为插入，将汇编代码转换为机器代码，最后输出目标文件（object file），`.o`结尾。
+
+```
+clang -fmodules -c main.s -o main.o
+```
+
+接下来我们看看`.o`文件中有哪些内容(main.o的符号)：
+
+```
+$ nm -nm main.o
+```
+
+输出的结果为：
+
+```
+$ nm -nm main.o
+                 (undefined) external _printf
+0000000000000000 (__TEXT,__text) external _test
+000000000000000a (__TEXT,__text) external _main
+```
+
+`_printf`函数是一个是undefined、external类型的：
+
+* `undefined`：表示在当前文件暂时找不到符号_printf。
+* `external`：表示这个符号是外部可以访问的。
+
+之所以找不到，是因为没有运行，有一些动态库、静态库是需要在运行时才被链接进来的。一堆堆的`.o`文件，链接起来，最后生成我们的可以执行文件。
+
+### 链接
+
+连接器把编译生成的`.o`文件和`.dyld`、·.a·文件链接，生成一个`mach-o`文件。
+
+其中，静态库和可执行文件合并，动态库是独立的（系统的动态库可以让所有mach-o访问的）。
+
+```
+clang main.o -o main
+```
+
+接下来看一下生成的可执行文件`main`的符号：
+
+```
+$ nm -nm main
+                 (undefined) external _printf (from libSystem)
+                 (undefined) external dyld_stub_binder (from libSystem)
+0000000100000000 (__TEXT,__text) [referenced dynamically] external __mh_execute_header
+0000000100003f6d (__TEXT,__text) external _test
+0000000100003f77 (__TEXT,__text) external _main
+0000000100008008 (__DATA,__data) non-external __dyld_private
+```
+
+可以看到，把dyld相关的库已经链接到可执行文件中了。
+
+这个时候可以直接运行这个可执行文件：
+
+```
+$ ./main
+6%
+```
+
+直接可以输出结果。
+
+### 绑定
+
+通过不同的架构，生成对应的mach-o格式的可执行文件。
+
+我们可以直接通过`file`命令查看可执行文件的类型：
+
+```
+$ file main
+main: Mach-O 64-bit executable x86_64
+```
+
+## 总结
+
+![](llvm-7.jpg)
+
+
+# clang插件
+
+
+
+
+
 
 # 引用
 
