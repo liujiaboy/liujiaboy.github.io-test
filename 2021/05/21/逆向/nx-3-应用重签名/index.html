@@ -24,17 +24,17 @@
   <meta name="description" content="应用重签名codesign 命令Xcode提供了签名工具codesign，我们可以通过几个命令iu可以完成重签名。  codesign -vv -d [WeChat.app] 查看签名 $ security find-identity -v -p codesigning 查看钥匙串力可以签名的证书 $ Codesign –fs [证书串] [filename] 强制替换签名 $ Chmod +x">
 <meta property="og:type" content="article">
 <meta property="og:title" content="应用重签名">
-<meta property="og:url" content="http://liujiaboy.github.io/2021/05/21/%E9%80%86%E5%90%91/%E5%BA%94%E7%94%A8%E9%87%8D%E7%AD%BE%E5%90%8D/index.html">
+<meta property="og:url" content="http://liujiaboy.github.io/2021/05/21/%E9%80%86%E5%90%91/nx-3-%E5%BA%94%E7%94%A8%E9%87%8D%E7%AD%BE%E5%90%8D/index.html">
 <meta property="og:site_name" content="不会飞的小白">
 <meta property="og:description" content="应用重签名codesign 命令Xcode提供了签名工具codesign，我们可以通过几个命令iu可以完成重签名。  codesign -vv -d [WeChat.app] 查看签名 $ security find-identity -v -p codesigning 查看钥匙串力可以签名的证书 $ Codesign –fs [证书串] [filename] 强制替换签名 $ Chmod +x">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-05-21T07:42:58.000Z">
-<meta property="article:modified_time" content="2021-05-24T02:16:11.930Z">
+<meta property="article:modified_time" content="2021-05-31T02:29:59.133Z">
 <meta property="article:author" content="不会飞的小白">
 <meta property="article:tag" content="应用签名">
 <meta name="twitter:card" content="summary">
 
-<link rel="canonical" href="http://liujiaboy.github.io/2021/05/21/%E9%80%86%E5%90%91/%E5%BA%94%E7%94%A8%E9%87%8D%E7%AD%BE%E5%90%8D/">
+<link rel="canonical" href="http://liujiaboy.github.io/2021/05/21/%E9%80%86%E5%90%91/nx-3-%E5%BA%94%E7%94%A8%E9%87%8D%E7%AD%BE%E5%90%8D/">
 
 
 <script id="page-configurations">
@@ -170,7 +170,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/05/21/%E9%80%86%E5%90%91/%E5%BA%94%E7%94%A8%E9%87%8D%E7%AD%BE%E5%90%8D/">
+    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/05/21/%E9%80%86%E5%90%91/nx-3-%E5%BA%94%E7%94%A8%E9%87%8D%E7%AD%BE%E5%90%8D/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.jpg">
@@ -200,7 +200,7 @@
                   <i class="fa fa-calendar-check-o"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-05-24 10:16:11" itemprop="dateModified" datetime="2021-05-24T10:16:11+08:00">2021-05-24</time>
+                <time title="修改时间：2021-05-31 10:29:59" itemprop="dateModified" datetime="2021-05-31T10:29:59+08:00">2021-05-31</time>
               </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -347,6 +347,36 @@
 <blockquote>
 <p>这里在第一次运行Xcode时，注意要先注释掉该shell脚本，运行一次之后再打开该shell脚本，重新运行。</p>
 </blockquote>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><ul>
+<li>codesign重签名<ol>
+<li>删除不能签名的文件：PlugIns(Extension)、Watch </li>
+<li>重签名Framework</li>
+<li>给Mach-O可执行权限（<code>chmod</code>命令）</li>
+<li>修改info.plist文件中的bundle id</li>
+<li>创建新工程运行，拷贝描述文件（该描述文件要在iOS系统中信任过）</li>
+<li>利用描述文件中的权限文件签名整个APP包</li>
+</ol>
+</li>
+<li>Xcode重签名<ol>
+<li>删除不能签名的文件：PlugIns(Extension)、Watch </li>
+<li>重签名Framework</li>
+<li>给Mach-O文件可执行权限（<code>chmod</code>命令）</li>
+<li>替换掉Xcode运行后产生的APP包</li>
+</ol>
+</li>
+<li>Shell重签名<ul>
+<li>shell切换</li>
+<li>老版本的Mac系统默认是bash，新系统（Sierra之后）默认shell是zsh</li>
+<li>zsh的环境变量在<code>~/.zshrc</code>中，bash的环境变量在<code>~/.bash_profile</code></li>
+<li>用户权限 chmod<ul>
+<li>数字 r:4 w:2 x:1 <code>chmod 751 filename</code></li>
+<li>字符 u:创建者 g：组 o：其他 a：所有 <code>chmod a+x filename</code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>还是推荐使用shell脚本重签名，因为以上两种方式虽然可行，但是会很麻烦，稍有不慎则会出现意外。<br>第二种使用Xcode签名，无法控制顺序，虽然做了app包替换，但是在运行时，还是会替换info.plist，导致有一些app安装之后，运行会出现问题。</p>
 
     </div>
 
@@ -365,7 +395,7 @@
         
     <div class="post-nav">
       <div class="post-nav-item">
-    <a href="/2021/05/20/%E9%80%86%E5%90%91/%E5%BA%94%E7%94%A8%E7%AD%BE%E5%90%8D/" rel="prev" title="应用签名">
+    <a href="/2021/05/20/%E9%80%86%E5%90%91/nx-2-%E5%BA%94%E7%94%A8%E7%AD%BE%E5%90%8D/" rel="prev" title="应用签名">
       <i class="fa fa-chevron-left"></i> 应用签名
     </a></div>
       <div class="post-nav-item">
@@ -431,7 +461,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#应用重签名"><span class="nav-number">1.</span> <span class="nav-text">应用重签名</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#codesign-命令"><span class="nav-number">1.1.</span> <span class="nav-text">codesign 命令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#codesign-签名步奏"><span class="nav-number">1.2.</span> <span class="nav-text">codesign 签名步奏</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#查看签名"><span class="nav-number">1.2.1.</span> <span class="nav-text">查看签名</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#查看本地钥匙串中可用的证书"><span class="nav-number">1.2.2.</span> <span class="nav-text">查看本地钥匙串中可用的证书</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#强制签名"><span class="nav-number">1.2.3.</span> <span class="nav-text">强制签名</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#创建新的描述文件"><span class="nav-number">1.2.4.</span> <span class="nav-text">创建新的描述文件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#更改权限"><span class="nav-number">1.2.5.</span> <span class="nav-text">更改权限</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#app重签"><span class="nav-number">1.2.6.</span> <span class="nav-text">app重签</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#安装"><span class="nav-number">1.2.7.</span> <span class="nav-text">安装</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Xcode重签名"><span class="nav-number">2.</span> <span class="nav-text">Xcode重签名</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#codesign-与-Xcode签名比较"><span class="nav-number">3.</span> <span class="nav-text">codesign 与 Xcode签名比较</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Shell-重签"><span class="nav-number">4.</span> <span class="nav-text">Shell 重签</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#文件类型与权限"><span class="nav-number">4.1.</span> <span class="nav-text">文件类型与权限</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#shell重签名"><span class="nav-number">4.2.</span> <span class="nav-text">shell重签名</span></a></li></ol></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#应用重签名"><span class="nav-number">1.</span> <span class="nav-text">应用重签名</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#codesign-命令"><span class="nav-number">1.1.</span> <span class="nav-text">codesign 命令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#codesign-签名步奏"><span class="nav-number">1.2.</span> <span class="nav-text">codesign 签名步奏</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#查看签名"><span class="nav-number">1.2.1.</span> <span class="nav-text">查看签名</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#查看本地钥匙串中可用的证书"><span class="nav-number">1.2.2.</span> <span class="nav-text">查看本地钥匙串中可用的证书</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#强制签名"><span class="nav-number">1.2.3.</span> <span class="nav-text">强制签名</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#创建新的描述文件"><span class="nav-number">1.2.4.</span> <span class="nav-text">创建新的描述文件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#更改权限"><span class="nav-number">1.2.5.</span> <span class="nav-text">更改权限</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#app重签"><span class="nav-number">1.2.6.</span> <span class="nav-text">app重签</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#安装"><span class="nav-number">1.2.7.</span> <span class="nav-text">安装</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Xcode重签名"><span class="nav-number">2.</span> <span class="nav-text">Xcode重签名</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#codesign-与-Xcode签名比较"><span class="nav-number">3.</span> <span class="nav-text">codesign 与 Xcode签名比较</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Shell-重签"><span class="nav-number">4.</span> <span class="nav-text">Shell 重签</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#文件类型与权限"><span class="nav-number">4.1.</span> <span class="nav-text">文件类型与权限</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#shell重签名"><span class="nav-number">4.2.</span> <span class="nav-text">shell重签名</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#总结"><span class="nav-number">5.</span> <span class="nav-text">总结</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -447,7 +477,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">29</span>
+          <span class="site-state-item-count">35</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>

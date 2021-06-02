@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="3WOMyh0YrdEECGDv2GOACbgBEtVz_dJbyA_2G-pjr28">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liujiaboy.github.io","root":"/","scheme":"Pisces","version":"7.7.2","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="LLVMLLVM是架构编译器的框架系统，以C++编写而成，用于优化任意程序语言编写的程序的编译时间（compile-time）、链接时间（link-time）、运行时间（run-time）以及空闲时间（idle-time）。对开发者保持开放，并兼容已有脚本。 传统编译器设计源码Source Code + 前端Frontend + 优化器Optimizer + 后端Backend（代码生成器 Cod">
+<meta property="og:type" content="article">
+<meta property="og:title" content="LLVM-编译流程">
+<meta property="og:url" content="http://liujiaboy.github.io/2021/05/24/OC%E5%8E%9F%E7%90%86/LLVM/index.html">
+<meta property="og:site_name" content="不会飞的小白">
+<meta property="og:description" content="LLVMLLVM是架构编译器的框架系统，以C++编写而成，用于优化任意程序语言编写的程序的编译时间（compile-time）、链接时间（link-time）、运行时间（run-time）以及空闲时间（idle-time）。对开发者保持开放，并兼容已有脚本。 传统编译器设计源码Source Code + 前端Frontend + 优化器Optimizer + 后端Backend（代码生成器 Cod">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://liujiaboy.github.io/2021/05/24/OC%E5%8E%9F%E7%90%86/LLVM/llvm-1.jpg">
+<meta property="og:image" content="http://liujiaboy.github.io/2021/05/24/OC%E5%8E%9F%E7%90%86/LLVM/llvm-2.jpg">
+<meta property="og:image" content="http://liujiaboy.github.io/2021/05/24/OC%E5%8E%9F%E7%90%86/LLVM/llvm-3.jpg">
+<meta property="og:image" content="http://liujiaboy.github.io/2021/05/24/OC%E5%8E%9F%E7%90%86/LLVM/llvm-4.jpg">
+<meta property="og:image" content="http://liujiaboy.github.io/2021/05/24/OC%E5%8E%9F%E7%90%86/LLVM/llvm-5.jpg">
+<meta property="og:image" content="http://liujiaboy.github.io/2021/05/24/OC%E5%8E%9F%E7%90%86/LLVM/llvm-6.jpg">
+<meta property="og:image" content="http://liujiaboy.github.io/2021/05/24/OC%E5%8E%9F%E7%90%86/LLVM/llvm-7.jpg">
+<meta property="article:published_time" content="2021-05-24T13:41:15.000Z">
+<meta property="article:modified_time" content="2021-05-27T02:47:29.396Z">
+<meta property="article:author" content="不会飞的小白">
+<meta property="article:tag" content="Objective-C,">
+<meta property="article:tag" content="iOS">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://liujiaboy.github.io/2021/05/24/OC%E5%8E%9F%E7%90%86/LLVM/llvm-1.jpg">
+
+<link rel="canonical" href="http://liujiaboy.github.io/2021/05/24/OC%E5%8E%9F%E7%90%86/LLVM/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true
+  };
+</script>
+
+  <title>LLVM-编译流程 | 不会飞的小白</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="不会飞的小白" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">不会飞的小白</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">Stay Hungry, Stay Foolish</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/liujiaboy" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/05/24/OC%E5%8E%9F%E7%90%86/LLVM/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="不会飞的小白">
+      <meta itemprop="description" content="一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="不会飞的小白">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          LLVM-编译流程
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-05-24 21:41:15" itemprop="dateCreated datePublished" datetime="2021-05-24T21:41:15+08:00">2021-05-24</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-05-27 10:47:29" itemprop="dateModified" datetime="2021-05-27T10:47:29+08:00">2021-05-27</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/OC%E5%8E%9F%E7%90%86/" itemprop="url" rel="index"><span itemprop="name">OC原理</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="LLVM"><a href="#LLVM" class="headerlink" title="LLVM"></a>LLVM</h1><p>LLVM是架构编译器的框架系统，以C++编写而成，用于优化任意程序语言编写的程序的编译时间（compile-time）、链接时间（link-time）、运行时间（run-time）以及空闲时间（idle-time）。对开发者保持开放，并兼容已有脚本。</p>
+<h2 id="传统编译器设计"><a href="#传统编译器设计" class="headerlink" title="传统编译器设计"></a>传统编译器设计</h2><p>源码<code>Source Code</code> + 前端<code>Frontend</code> + 优化器<code>Optimizer</code> + 后端<code>Backend</code>（代码生成器 CodeGenerator）+ 机器码<code>Machine Code</code>，如下图所示</p>
+<p><img src="llvm-1.jpg" alt=""></p>
+<ul>
+<li><p>前端<code>Frontend</code>：编译器前端的任务是解析源代码（编译阶段），它会进行 词法分析、语法分析、语义分析、检查源代码是否存在错误，然后构建抽象语法树（Abstract Syntax Tree AST），LLVM的前端还会生成中间代码（intermediate representation，简称<code>IR</code>），可以理解为llvm是编译器 + 优化器， 接收的是IR中间代码，输出的还是IR，给后端，经过后端翻译成目标指令集。</p>
+</li>
+<li><p>优化器 <code>Optimizer</code>：优化器负责进行各种优化，改善代码的运行时间，例如消除冗余计算等。</p>
+</li>
+<li><p>后端<code>Backend</code>（代码生成器 Code Generator）：将代码映射到目标指令集，生成机器代码，并且进行机器代码相关的代码优化。</p>
+</li>
+</ul>
+<h2 id="iOS的编译架构"><a href="#iOS的编译架构" class="headerlink" title="iOS的编译架构"></a>iOS的编译架构</h2><p>OC、C、C++使用的编译器前端是Clang，Swift是swift，后端都是LLVM。</p>
+<p><img src="llvm-2.jpg" alt=""></p>
+<h2 id="LLVM的设计"><a href="#LLVM的设计" class="headerlink" title="LLVM的设计"></a>LLVM的设计</h2><p>当编译器决定支持多种源语言或者多种硬件架构时，LLVM最重要的地方就来了。其他的编译器如GCC，他们都非常成功，但是由于它是作为整体应用程序设计的，因此他们的用途受到了很大的限制。</p>
+<p>LLVM设计的最重要方面是，使用通用的代码表示形式（IR），它是用来在编译器中表示代码的形式，所有LLVM可以为任何编程语言独立编写前端，并且可以为任意硬件架构独立编写后端。</p>
+<p><img src="llvm-3.jpg" alt=""></p>
+<p>LLVM的设计是前后端分离的，无论前端还是后端发生变化，都不会影响另一个。</p>
+<h2 id="Clang简介"><a href="#Clang简介" class="headerlink" title="Clang简介"></a>Clang简介</h2><p>clang是LLVM项目中的一个子项目，它是基于LLVM架构图的轻量级编译器，诞生之初是为了替代GCC，提供更快的编译速度，它是负责C、C++、OC语言的编译器，属于整个LLVM架构中的 编译器前端，对于开发者来说，研究Clang可以给我们带来很多好处。</p>
+<h1 id="编译流程"><a href="#编译流程" class="headerlink" title="编译流程"></a>编译流程</h1><p>创建一个工程，在main.m中添加代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">#define c 3</span><br><span class="line">typedef int Demo_Int;</span><br><span class="line"></span><br><span class="line">int main(int argc, const char * argv[]) &#123;</span><br><span class="line">    int a &#x3D; 1;</span><br><span class="line">    Demo_Int b &#x3D; 2;</span><br><span class="line">    printf(&quot;%d&quot;, a + b + c);</span><br><span class="line">    return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们通过命令可以打印源码的编译流程</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ clang -ccc-print-phases main.m</span><br></pre></td></tr></table></figure>
+
+<p>流程如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">输入文件：找到源文件</span><br><span class="line">+- 0: input, &quot;main.m&quot;, objective-c</span><br><span class="line"></span><br><span class="line">预处理阶段：这个过程处理包括宏的替换，头文件的导入</span><br><span class="line">+- 1: preprocessor, &#123;0&#125;, objective-c-cpp-output</span><br><span class="line"></span><br><span class="line">编译阶段：进行词法分析、语法分析、检测语法是否正确，最终生成IR</span><br><span class="line">+- 2: compiler, &#123;1&#125;, ir</span><br><span class="line"></span><br><span class="line">后端：这里LLVM会通过一个一个的pass去优化，每个pass做一些事情，最终生成汇编代码</span><br><span class="line">+- 3: backend, &#123;2&#125;, assembler</span><br><span class="line"></span><br><span class="line">汇编代码生成目标文件</span><br><span class="line">+- 4: assembler, &#123;3&#125;, object</span><br><span class="line"></span><br><span class="line">链接：一个个&quot;xxx.0&quot;文件链接起来，再链接需要的动态库和静态库，生成可执行文件</span><br><span class="line">+- 5: linker, &#123;4&#125;, image（镜像文件）</span><br><span class="line"></span><br><span class="line">绑定：通过不同的架构，生成对应的可执行文件</span><br><span class="line">6: bind-arch, &quot;x86_64&quot;, &#123;5&#125;, image</span><br></pre></td></tr></table></figure>
+
+<h2 id="预处理阶段"><a href="#预处理阶段" class="headerlink" title="预处理阶段"></a>预处理阶段</h2><p>预处理主要是处理：</p>
+<ol>
+<li>头文件导入<ul>
+<li>包括引入的头文件中的头文件</li>
+</ul>
+</li>
+<li>宏定义，替换宏<ul>
+<li>比如上方定义的<code>#define c 3</code>，预处理后，不会看到<code>c</code>直接会用3替代。</li>
+</ul>
+</li>
+</ol>
+<p>通过命令可以查看预处理后的结果：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 在终端直接查看预处理的结果</span><br><span class="line">$ clang -E main.m</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 把预处理的结果输出到main2.m文件中</span><br><span class="line">$ clang -E main.m &gt;&gt; main2.m</span><br></pre></td></tr></table></figure>
+
+<p>编译之后的主要代码如下，删除很多头文件的引入：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line"></span><br><span class="line">typedef int Demo_Int;</span><br><span class="line"></span><br><span class="line">int main(int argc, const char * argv[]) &#123;</span><br><span class="line">    int a &#x3D; 1;</span><br><span class="line">    Demo_Int b &#x3D; 2;</span><br><span class="line">    printf(&quot;%d&quot;, a + b + 3;);</span><br><span class="line">    return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<ol>
+<li>typedef 处理类型别名时，在预处理阶段<code>不会被替换掉</code>。</li>
+<li>#define 在预处理阶段<code>会被替换掉</code>。在逆向工程中，通常会被用来进行代码混淆，将核心方法等使用<code>系统相似的名称</code>，来达到代码混淆的目的，使代码更安全。</li>
+</ol>
+</blockquote>
+<h2 id="编译阶段"><a href="#编译阶段" class="headerlink" title="编译阶段"></a>编译阶段</h2><p>由<code>词法分析</code>、<code>语法分析</code>、<code>生成中级代码IR</code>等组成。</p>
+<h3 id="词法分析"><a href="#词法分析" class="headerlink" title="词法分析"></a>词法分析</h3><p>预处理完成后就会进行词法分析，这里会把代码切成一个个token，比如大小括号、等号、字符串、关键词等。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ clang -fmodules -fsyntax-only -Xclang -dump-tokens main.m</span><br></pre></td></tr></table></figure>
+
+<p><img src="llvm-4.jpg" alt=""></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; StartOfLine：main.m文件中，第11行，第1个字符开始，是&#39;typedef&#39;</span><br><span class="line">typedef &#39;typedef&#39;	 [StartOfLine]	Loc&#x3D;&lt;main.m:11:1&gt;</span><br><span class="line">&#x2F;&#x2F; LeadingSpace： main.m文件中，第11行，从第9个字符开始</span><br><span class="line">int &#39;int&#39;	 [LeadingSpace]	Loc&#x3D;&lt;main.m:11:9&gt;</span><br><span class="line">identifier &#39;Demo_Int&#39;	 [LeadingSpace]	Loc&#x3D;&lt;main.m:11:13&gt;</span><br><span class="line">&#x2F;&#x2F; 符号&quot;;&quot;，从main.m的第11行，21个字符开始</span><br><span class="line">semi &#39;;&#39;		Loc&#x3D;&lt;main.m:11:21&gt;</span><br></pre></td></tr></table></figure>
+
+<p>如果代码中有书写错误，在词法分析时不会报错。</p>
+<h3 id="语法分析"><a href="#语法分析" class="headerlink" title="语法分析"></a>语法分析</h3><p>词法分析完成后就是语法分析，它的任务是验证语法是否正确，在词法分析的基础上将单词序列组合成各类此法短语，如程序、语句、表达式 等等，然后将所有节点组成抽象语法树（Abstract Syntax Tree = AST），语法分析判断程序在结构上是否正确。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ clang -fmodules -fsyntax-only -Xclang -ast-dump main.m</span><br></pre></td></tr></table></figure>
+
+<p>如果导入头文件找不到，可以指定SDK</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ clang -isysroot (自己Xcode下对应SDK路径) -fmodules -fsyntax-only -Xclang -ast-dump main.m</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">$ clang -isysroot &#x2F;Applications&#x2F;Xcode.app&#x2F;Contents&#x2F;Developer&#x2F;Platforms&#x2F;iPhoneSimulator.platform&#x2F;Developer&#x2F;SDKs&#x2F;iPhoneSimulator14.3.sdk&#x2F; -fmodules -fsyntax-only -Xclang -ast-dump main.m</span><br></pre></td></tr></table></figure>
+
+<p>这是截取了语法分析中的一部分：</p>
+<p><img src="llvm-5.jpg" alt=""></p>
+<p>这是严格的按照语法进行处理的，从代码的对齐上可以看出点东西来。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 头文件引入 stdio</span><br><span class="line">ImportDecl 0x7fc57905a130 &lt;main.m:9:1&gt; col:1 implicit Darwin.C.stdio</span><br><span class="line">&#x2F;&#x2F; typedef int Demo_Int;</span><br><span class="line">|-TypedefDecl 0x7fc57905a188 &lt;line:11:1, col:13&gt; col:13 referenced Demo_Int &#39;int&#39;</span><br><span class="line">| &#96;-BuiltinType 0x7fc57901b500 &#39;int&#39;</span><br><span class="line">&#x2F;&#x2F; 定义了一个方法main，从13行的第1个字符开始到第18行第1个字符结束，返回int类型，有两个参数int和char **</span><br><span class="line">FunctionDecl 0x7fc57905a460 &lt;line:13:1, line:18:1&gt; line:13:5 main &#39;int (int, const char **)&#39;</span><br><span class="line">  &#x2F;&#x2F; 第1个参数为int 类型，参数名是argc</span><br><span class="line">  |-ParmVarDecl 0x7fc57905a1f8 &lt;col:10, col:14&gt; col:14 argc &#39;int&#39;</span><br><span class="line">  &#x2F;&#x2F; 第2个参数为char ** 类型，参数名是argv</span><br><span class="line">  |-ParmVarDecl 0x7fc57905a310 &lt;col:20, col:38&gt; col:33 argv &#39;const char **&#39;:&#39;const char **&#39;</span><br><span class="line">  &#x2F;&#x2F; 函数的内容范围，从第13行第41个字符开始到第18行第1个字符结束，也就是两个大括号的位置，也就是函数的作用域</span><br><span class="line">  &#96;-CompoundStmt 0x7fc578966df0 &lt;col:41, line:18:1&gt;</span><br><span class="line">    &#x2F;&#x2F; 声明局部变量</span><br><span class="line">    |-DeclStmt 0x7fc578966688 &lt;line:14:5, col:14&gt;</span><br><span class="line">    &#x2F;&#x2F; 局部变量为a，类型为int</span><br><span class="line">    | &#96;-VarDecl 0x7fc578966600 &lt;col:5, col:13&gt; col:9 used a &#39;int&#39; cinit</span><br><span class="line">    &#x2F;&#x2F; 局部变量a的值为1</span><br><span class="line">    |   &#96;-IntegerLiteral 0x7fc578966668 &lt;col:13&gt; &#39;int&#39; 1</span><br><span class="line">    |-DeclStmt 0x7fc578966b70 &lt;line:15:5, col:19&gt;</span><br><span class="line">    | &#96;-VarDecl 0x7fc5789666d0 &lt;col:5, col:18&gt; col:14 used b &#39;Demo_Int&#39;:&#39;int&#39; cinit</span><br><span class="line">    |   &#96;-IntegerLiteral 0x7fc578966738 &lt;col:18&gt; &#39;int&#39; 2</span><br><span class="line">    &#x2F;&#x2F; 调用了函数方法，返回int类型</span><br><span class="line">    |-CallExpr 0x7fc578966d60 &lt;line:16:5, col:27&gt; &#39;int&#39;</span><br><span class="line">      &#x2F;&#x2F; 隐式转换</span><br><span class="line">    | |-ImplicitCastExpr 0x7fc578966d48 &lt;col:5&gt; &#39;int (*)(const char *, ...)&#39; &lt;FunctionToPointerDecay&gt;</span><br><span class="line">    | | &#96;-DeclRefExpr 0x7fc578966b88 &lt;col:5&gt; &#39;int (const char *, ...)&#39; Function 0x7fc578966760 &#39;printf&#39; &#39;int (const char *, ...)&#39;</span><br><span class="line">    | |-ImplicitCastExpr 0x7fc578966da8 &lt;col:12&gt; &#39;const char *&#39; &lt;NoOp&gt;</span><br><span class="line">    | | &#96;-ImplicitCastExpr 0x7fc578966d90 &lt;col:12&gt; &#39;char *&#39; &lt;ArrayToPointerDecay&gt;</span><br><span class="line">    &#x2F;&#x2F; 对应的string类型转化为char[]类型，</span><br><span class="line">    | |   &#96;-StringLiteral 0x7fc578966be8 &lt;col:12&gt; &#39;char [3]&#39; lvalue &quot;%d&quot;</span><br><span class="line">    &#x2F;&#x2F; 运算表达式</span><br><span class="line">    | &#96;-BinaryOperator 0x7fc578966ce8 &lt;col:18, line:10:11&gt; &#39;int&#39; &#39;+&#39;</span><br><span class="line">    |   |-BinaryOperator 0x7fc578966ca8 &lt;line:16:18, col:22&gt; &#39;int&#39; &#39;+&#39;</span><br><span class="line">    |   | |-ImplicitCastExpr 0x7fc578966c78 &lt;col:18&gt; &#39;int&#39; &lt;LValueToRValue&gt;</span><br><span class="line">    |   | | &#96;-DeclRefExpr 0x7fc578966c08 &lt;col:18&gt; &#39;int&#39; lvalue Var 0x7fc578966600 &#39;a&#39; &#39;int&#39;</span><br><span class="line">    |   | &#96;-ImplicitCastExpr 0x7fc578966c90 &lt;col:22&gt; &#39;Demo_Int&#39;:&#39;int&#39; &lt;LValueToRValue&gt;</span><br><span class="line">    |   |   &#96;-DeclRefExpr 0x7fc578966c40 &lt;col:22&gt; &#39;Demo_Int&#39;:&#39;int&#39; lvalue Var 0x7fc5789666d0 &#39;b&#39; &#39;Demo_Int&#39;:&#39;int&#39;</span><br><span class="line">    |   &#96;-IntegerLiteral 0x7fc578966cc8 &lt;line:10:11&gt; &#39;int&#39; 3</span><br><span class="line">    &#96;-ReturnStmt 0x7fc578966de0 &lt;line:17:5, col:12&gt;</span><br><span class="line">      &#96;-IntegerLiteral 0x7fc578966dc0 &lt;col:12&gt; &#39;int&#39; 0</span><br></pre></td></tr></table></figure>
+
+<p><code>CompoundStmt</code>：函数的作用域，大括号的开始与结束<code>{}</code><br><code>DeclStmt</code>：局部变量声明<br><code>CallExpr</code>：函数调用<br><code>BinaryOperator</code>：运算表达式</p>
+<p><a href="https://www.jianshu.com/p/d21c16b8953e" target="_blank" rel="noopener">AST语法树关键字解析</a><br><a href="https://github.com/CodeLittlePrince/blog/issues/19" target="_blank" rel="noopener">AST抽象语法树</a></p>
+<p>如果当我们写的代码有问题时，在编译阶段就会出现问题，比如我们在上面的代码中删除一个分号，再运行一下命令。</p>
+<p><img src="llvm-6.jpg" alt=""></p>
+<p>在语法分析阶段就会把错误清晰的暴露出来。</p>
+<h3 id="生成中级代码IR"><a href="#生成中级代码IR" class="headerlink" title="生成中级代码IR"></a>生成中级代码IR</h3><p>完成以上步骤后，就开始生成中间代码IR了，代码生成器（Code Generation）会将语法树自顶向下遍历逐步翻译成LLVM IR。</p>
+<p>可以通过下面命令生成<code>xx.ll</code>的文本文件，也就是IR代码。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 默认不优化</span><br><span class="line">$ clang -S -fobjc-arc -emit-llvm main.m</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; IR文件的优化，在Xcode中target - build setting -optimization level可以设置。</span><br><span class="line">&#x2F;&#x2F; LLVM的优化登记分别为 -O0、 -O1 、-O2、-O3、-Os（第一个字母为大写O）</span><br><span class="line">clang -Os -S -fobjc-arc -emit-llvm main.m -o main.ll</span><br></pre></td></tr></table></figure>
+
+<p>以下是<code>IR</code>的基本语法：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">@ 全局标识</span><br><span class="line">% 局部标识</span><br><span class="line">alloca 开辟空间</span><br><span class="line">align 内存对齐</span><br><span class="line">i32 32bit，4个字节</span><br><span class="line">store 写入内存</span><br><span class="line">load 读取数据</span><br><span class="line">call 调用函数</span><br><span class="line">ret 返回</span><br></pre></td></tr></table></figure>
+
+<p>编译之后的IR代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">define i32 @main(i32 %0, i8** %1) #0 &#123;</span><br><span class="line">  %3 &#x3D; alloca i32, align 4</span><br><span class="line">  %4 &#x3D; alloca i32, align 4</span><br><span class="line">  %5 &#x3D; alloca i8**, align 8</span><br><span class="line">  %6 &#x3D; alloca i32, align 4</span><br><span class="line">  %7 &#x3D; alloca i32, align 4</span><br><span class="line">  store i32 0, i32* %3, align 4</span><br><span class="line">  store i32 %0, i32* %4, align 4</span><br><span class="line">  store i8** %1, i8*** %5, align 8</span><br><span class="line">  store i32 1, i32* %6, align 4</span><br><span class="line">  store i32 2, i32* %7, align 4</span><br><span class="line">  %8 &#x3D; load i32, i32* %6, align 4</span><br><span class="line">  %9 &#x3D; load i32, i32* %7, align 4</span><br><span class="line">  %10 &#x3D; add nsw i32 %8, %9</span><br><span class="line">  %11 &#x3D; add nsw i32 %10, 3</span><br><span class="line">  %12 &#x3D; call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str, i64 0, i64 0), i32 %11)</span><br><span class="line">  ret i32 0</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>优化后生成的代码就不放了，自己看吧。</p>
+<h4 id="bitcode"><a href="#bitcode" class="headerlink" title="bitcode"></a>bitcode</h4><p>在Xcode7以后，开启了bitcode，苹果会做进一步的优化，生成<code>.bc</code>的中间代码。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ clang -emit-llvm -c main.ll -o main.bc</span><br></pre></td></tr></table></figure>
+
+<h3 id="后端"><a href="#后端" class="headerlink" title="后端"></a>后端</h3><p>LLVM在后端主要是会通过一个个的Pass去优化，每个Pass做一些事情，最终生成汇编代码。</p>
+<p>按照整个llvm的流程，是通过<code>.ll</code>文件生成汇编文件：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ clang -S -fobjc-arc main.ll -o main.s</span><br></pre></td></tr></table></figure>
+
+<p>我们也可以直接使用源文件生成汇编代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ clang -Os -S -fobjc-arc main.m -o main.s</span><br></pre></td></tr></table></figure>
+
+<p>这里需要注意的是，在上一步中优化后得到的汇编代码与直接使用优化得到的汇编代码是一样的。</p>
+<h3 id="生成目标文件"><a href="#生成目标文件" class="headerlink" title="生成目标文件"></a>生成目标文件</h3><p>目标文件的生成，是汇编器以汇编代码作为插入，将汇编代码转换为机器代码，最后输出目标文件（object file），<code>.o</code>结尾。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">clang -fmodules -c main.s -o main.o</span><br></pre></td></tr></table></figure>
+
+<p>接下来我们看看<code>.o</code>文件中有哪些内容(main.o的符号)：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ nm -nm main.o</span><br></pre></td></tr></table></figure>
+
+<p>输出的结果为：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ nm -nm main.o</span><br><span class="line">                 (undefined) external _printf</span><br><span class="line">0000000000000000 (__TEXT,__text) external _test</span><br><span class="line">000000000000000a (__TEXT,__text) external _main</span><br></pre></td></tr></table></figure>
+
+<p><code>_printf</code>函数是一个是undefined、external类型的：</p>
+<ul>
+<li><code>undefined</code>：表示在当前文件暂时找不到符号_printf。</li>
+<li><code>external</code>：表示这个符号是外部可以访问的。</li>
+</ul>
+<p>之所以找不到，是因为没有运行，有一些动态库、静态库是需要在运行时才被链接进来的。一堆堆的<code>.o</code>文件，链接起来，最后生成我们的可以执行文件。</p>
+<h3 id="链接"><a href="#链接" class="headerlink" title="链接"></a>链接</h3><p>连接器把编译生成的<code>.o</code>文件和<code>.dyld</code>、·.a·文件链接，生成一个<code>mach-o</code>文件。</p>
+<p>其中，静态库和可执行文件合并，动态库是独立的（系统的动态库可以让所有mach-o访问的）。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">clang main.o -o main</span><br></pre></td></tr></table></figure>
+
+<p>接下来看一下生成的可执行文件<code>main</code>的符号：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$ nm -nm main</span><br><span class="line">                 (undefined) external _printf (from libSystem)</span><br><span class="line">                 (undefined) external dyld_stub_binder (from libSystem)</span><br><span class="line">0000000100000000 (__TEXT,__text) [referenced dynamically] external __mh_execute_header</span><br><span class="line">0000000100003f6d (__TEXT,__text) external _test</span><br><span class="line">0000000100003f77 (__TEXT,__text) external _main</span><br><span class="line">0000000100008008 (__DATA,__data) non-external __dyld_private</span><br></pre></td></tr></table></figure>
+
+<p>可以看到，把dyld相关的库已经链接到可执行文件中了。</p>
+<p>这个时候可以直接运行这个可执行文件：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ .&#x2F;main</span><br><span class="line">6%</span><br></pre></td></tr></table></figure>
+
+<p>直接可以输出结果。</p>
+<h3 id="绑定"><a href="#绑定" class="headerlink" title="绑定"></a>绑定</h3><p>通过不同的架构，生成对应的mach-o格式的可执行文件。</p>
+<p>我们可以直接通过<code>file</code>命令查看可执行文件的类型：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ file main</span><br><span class="line">main: Mach-O 64-bit executable x86_64</span><br></pre></td></tr></table></figure>
+
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p><img src="llvm-7.jpg" alt=""></p>
+<h1 id="clang插件"><a href="#clang插件" class="headerlink" title="clang插件"></a>clang插件</h1><h1 id="引用"><a href="#引用" class="headerlink" title="引用"></a>引用</h1><p><a href="https://www.jianshu.com/p/d21c16b8953e" target="_blank" rel="noopener">AST语法树关键字解析</a><br><a href="https://github.com/CodeLittlePrince/blog/issues/19" target="_blank" rel="noopener">AST抽象语法树</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Objective-C/" rel="tag"># Objective-C,</a>
+              <a href="/tags/iOS/" rel="tag"># iOS</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/05/22/OC%E5%8E%9F%E7%90%86/block/" rel="prev" title="block">
+      <i class="fa fa-chevron-left"></i> block
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/05/25/%E9%80%86%E5%90%91/nx-4-%E4%BB%A3%E7%A0%81%E6%B3%A8%E5%85%A5/" rel="next" title="代码注入">
+      代码注入 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#LLVM"><span class="nav-number">1.</span> <span class="nav-text">LLVM</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#传统编译器设计"><span class="nav-number">1.1.</span> <span class="nav-text">传统编译器设计</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#iOS的编译架构"><span class="nav-number">1.2.</span> <span class="nav-text">iOS的编译架构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#LLVM的设计"><span class="nav-number">1.3.</span> <span class="nav-text">LLVM的设计</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Clang简介"><span class="nav-number">1.4.</span> <span class="nav-text">Clang简介</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#编译流程"><span class="nav-number">2.</span> <span class="nav-text">编译流程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#预处理阶段"><span class="nav-number">2.1.</span> <span class="nav-text">预处理阶段</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#编译阶段"><span class="nav-number">2.2.</span> <span class="nav-text">编译阶段</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#词法分析"><span class="nav-number">2.2.1.</span> <span class="nav-text">词法分析</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#语法分析"><span class="nav-number">2.2.2.</span> <span class="nav-text">语法分析</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#生成中级代码IR"><span class="nav-number">2.2.3.</span> <span class="nav-text">生成中级代码IR</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#bitcode"><span class="nav-number">2.2.3.1.</span> <span class="nav-text">bitcode</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#后端"><span class="nav-number">2.2.4.</span> <span class="nav-text">后端</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#生成目标文件"><span class="nav-number">2.2.5.</span> <span class="nav-text">生成目标文件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#链接"><span class="nav-number">2.2.6.</span> <span class="nav-text">链接</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#绑定"><span class="nav-number">2.2.7.</span> <span class="nav-text">绑定</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">2.3.</span> <span class="nav-text">总结</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#clang插件"><span class="nav-number">3.</span> <span class="nav-text">clang插件</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#引用"><span class="nav-number">4.</span> <span class="nav-text">引用</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="不会飞的小白"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">不会飞的小白</p>
+  <div class="site-description" itemprop="description">一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">35</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">15</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liujiaboy" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liujiaboy" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:alan129@163.com" title="E-Mail → mailto:alan129@163.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/u/1768698000" title="Weibo → https:&#x2F;&#x2F;weibo.com&#x2F;u&#x2F;1768698000" rel="noopener" target="_blank"><i class="fa fa-fw fa-weibo"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i></a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">不会飞的小白</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.2.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v7.7.2
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  
+  <script color='0,0,255' opacity='0.5' zIndex='-1' count='99' src="/lib/canvas-nest/canvas-nest.min.js"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
