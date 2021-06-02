@@ -171,6 +171,188 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block home" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/05/19/OC%E5%8E%9F%E7%90%86/%E9%94%81%E7%9A%84%E5%8E%9F%E7%90%86-2/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="不会飞的小白">
+      <meta itemprop="description" content="一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="不会飞的小白">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          
+            <a href="/2021/05/19/OC%E5%8E%9F%E7%90%86/%E9%94%81%E7%9A%84%E5%8E%9F%E7%90%86-2/" class="post-title-link" itemprop="url">锁的原理-2</a>
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-05-19 22:01:16" itemprop="dateCreated datePublished" datetime="2021-05-19T22:01:16+08:00">2021-05-19</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-05-24 10:16:11" itemprop="dateModified" datetime="2021-05-24T10:16:11+08:00">2021-05-24</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/OC%E5%8E%9F%E7%90%86/" itemprop="url" rel="index"><span itemprop="name">OC原理</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h1 id="NSLock"><a href="#NSLock" class="headerlink" title="NSLock"></a>NSLock</h1><p>老规矩，直接上代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">NSLock *lock &#x3D; [[NSLock alloc] init];</span><br><span class="line">[lock lock];</span><br></pre></td></tr></table></figure>
+
+<p>之所以这么写，就是为了找到NSLock所在的底层库，我们在<code>[lock lock]</code>这一行打个断点，然后使用符号断点<code>symbolic breakpoint</code>添加一个<code>lock</code>的符号，全靠盲猜。因为使用符合断点是最有效的方法，有时候汇编也不一定能进去。</p>
+<p><img src="foundation_lock.jpg" alt=""></p>
+<p>很容易就找到了，这是在foundation框架中的，但是这个框架是没有开源的，怎么搞呢？</p>
+<p>还有swift源码哈~莫慌</p>
+<p>在<code>NSLock.swift</code>文件中可以找到<code>NSLock</code>的类，下方代码对其做了删减。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line">open class NSLock: NSObject, NSLocking &#123;</span><br><span class="line">    internal var mutex &#x3D; _MutexPointer.allocate(capacity: 1)</span><br><span class="line">#if os(macOS) || os(iOS) || os(Windows)</span><br><span class="line">    private var timeoutCond &#x3D; _ConditionVariablePointer.allocate(capacity: 1)</span><br><span class="line">    private var timeoutMutex &#x3D; _MutexPointer.allocate(capacity: 1)</span><br><span class="line">#endif</span><br><span class="line">    &#x2F;&#x2F; init 初始化，内部是pthread_mutex_init，是个互斥锁</span><br><span class="line">    public override init() &#123;</span><br><span class="line">        pthread_mutex_init(mutex, nil)</span><br><span class="line">#if os(macOS) || os(iOS)</span><br><span class="line">        pthread_cond_init(timeoutCond, nil)</span><br><span class="line">        pthread_mutex_init(timeoutMutex, nil)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    &#x2F;&#x2F; dealloc，析构方法</span><br><span class="line">    deinit &#123;</span><br><span class="line">        pthread_mutex_destroy(mutex)</span><br><span class="line">        mutex.deinitialize(count: 1)</span><br><span class="line">        mutex.deallocate()</span><br><span class="line">#if os(macOS) || os(iOS) || os(Windows)</span><br><span class="line">        deallocateTimedLockData(cond: timeoutCond, mutex: timeoutMutex)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    &#x2F;&#x2F; 加锁</span><br><span class="line">    open func lock() &#123;</span><br><span class="line">        pthread_mutex_lock(mutex)</span><br><span class="line">    &#125;</span><br><span class="line">    &#x2F;&#x2F; 解锁</span><br><span class="line">    open func unlock() &#123;</span><br><span class="line">        pthread_mutex_unlock(mutex)</span><br><span class="line">#if os(macOS) || os(iOS)</span><br><span class="line">        &#x2F;&#x2F; Wakeup any threads waiting in lock(before:)</span><br><span class="line">        pthread_mutex_lock(timeoutMutex)</span><br><span class="line">        pthread_cond_broadcast(timeoutCond)</span><br><span class="line">        pthread_mutex_unlock(timeoutMutex)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    &#x2F;&#x2F; tryLock</span><br><span class="line">    open func &#96;try&#96;() -&gt; Bool &#123;</span><br><span class="line">        return pthread_mutex_trylock(mutex) &#x3D;&#x3D; 0</span><br><span class="line">    &#125;</span><br><span class="line">    &#x2F;&#x2F;  lockBeforeDate</span><br><span class="line">    open func lock(before limit: Date) -&gt; Bool &#123;</span><br><span class="line">        if pthread_mutex_trylock(mutex) &#x3D;&#x3D; 0 &#123;</span><br><span class="line">            return true</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">#if os(macOS) || os(iOS) || os(Windows)</span><br><span class="line">        return timedLock(mutex: mutex, endTime: limit, using: timeoutCond, with: timeoutMutex)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    open var name: String?</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>这些方法在iOS中都可以找到，我们通过源码可以看到内部的实现逻辑。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">@interface NSLock : NSObject &lt;NSLocking&gt; &#123;</span><br><span class="line">@private</span><br><span class="line">    void *_priv;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (BOOL)tryLock;</span><br><span class="line">- (BOOL)lockBeforeDate:(NSDate *)limit;</span><br><span class="line"></span><br><span class="line">@property (nullable, copy) NSString *name API_AVAILABLE(macos(10.5), ios(2.0), watchos(2.0), tvos(9.0));</span><br></pre></td></tr></table></figure>
+
+<p>NSLock内部调用的就是<code>pthread</code>的互斥锁。</p>
+<p>首先我们运行一下下面对的代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">NSLock *lock &#x3D; [[NSLock alloc] init];</span><br><span class="line">NSRecursiveLock *recursiveLock &#x3D; [[NSRecursiveLock alloc] init];</span><br><span class="line">for (int i &#x3D; 0; i &lt; 100; i ++) &#123;</span><br><span class="line">    dispatch_async(dispatch_get_global_queue(0, 0), ^&#123;</span><br><span class="line">        &#x2F;&#x2F; 1. lock位置 1</span><br><span class="line">        &#x2F;&#x2F;[lock lock];</span><br><span class="line">        &#x2F;&#x2F;[recursiveLock lock];</span><br><span class="line">        &#x2F;&#x2F; 这里定义了一个block</span><br><span class="line">        static void(^testMethod)(int value);</span><br><span class="line">        testMethod &#x3D; ^(int value) &#123;</span><br><span class="line">            &#x2F;&#x2F; 2. lock位置 2</span><br><span class="line">            &#x2F;&#x2F;[lock lock];</span><br><span class="line">            &#x2F;&#x2F;[recursiveLock lock];</span><br><span class="line">            if (value &gt; 0) &#123;</span><br><span class="line">                NSLog(@&quot;i &#x3D; %d, current value &#x3D; %d&quot;, i, value);</span><br><span class="line">                &#x2F;&#x2F; block内部调用block，形成了嵌套-递归</span><br><span class="line">                testMethod(value - 1);</span><br><span class="line">            &#125;</span><br><span class="line">            &#x2F;&#x2F;[lock unlock];</span><br><span class="line">            &#x2F;&#x2F;[recursiveLock unlock];</span><br><span class="line">        &#125;;</span><br><span class="line">        testMethod(10);</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我虽然把锁都写出来了。但是一开始的情况下，我们不加锁运行一下，看是怎么打印的。</p>
+<p><img src="lock-1.jpg" alt=""></p>
+<p>打印出来的就是一堆无序的数字。</p>
+<p>然后我们使用NSLock，把1处的lock打开，底部unlock也需要打开，再执行一下。</p>
+<p>诶~~ 怎么还发生崩溃了呢？就是因为内部发生了递归调用，这个锁已经玩不了了。<br>那我们该用递归锁试一下，我们使用<code>NSRecursiveLock</code>再运行一下，把1处对应的lock打开。</p>
+<p><img src="lock-2.jpg" alt=""></p>
+<p>这次没问题了哈~ 为啥呢？</p>
+<h1 id="NSRecursiveLock"><a href="#NSRecursiveLock" class="headerlink" title="NSRecursiveLock"></a>NSRecursiveLock</h1><p>我们看一下NSRecursiveLock的源码是啥？</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br></pre></td><td class="code"><pre><span class="line">open class NSRecursiveLock: NSObject, NSLocking &#123;</span><br><span class="line">    internal var mutex &#x3D; _RecursiveMutexPointer.allocate(capacity: 1)</span><br><span class="line">#if os(macOS) || os(iOS) || os(Windows)</span><br><span class="line">    private var timeoutCond &#x3D; _ConditionVariablePointer.allocate(capacity: 1)</span><br><span class="line">    private var timeoutMutex &#x3D; _MutexPointer.allocate(capacity: 1)</span><br><span class="line">#endif</span><br><span class="line"></span><br><span class="line">    public override init() &#123;</span><br><span class="line">        super.init()</span><br><span class="line">        var attrib &#x3D; pthread_mutexattr_t()</span><br><span class="line"></span><br><span class="line">        withUnsafeMutablePointer(to: &amp;attrib) &#123; attrs in</span><br><span class="line">            pthread_mutexattr_init(attrs)</span><br><span class="line">            pthread_mutexattr_settype(attrs, Int32(PTHREAD_MUTEX_RECURSIVE))</span><br><span class="line">            pthread_mutex_init(mutex, attrs)</span><br><span class="line">        &#125;</span><br><span class="line">#if os(macOS) || os(iOS)</span><br><span class="line">        pthread_cond_init(timeoutCond, nil)</span><br><span class="line">        pthread_mutex_init(timeoutMutex, nil)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    deinit &#123;</span><br><span class="line">        pthread_mutex_destroy(mutex)</span><br><span class="line">        </span><br><span class="line">        mutex.deinitialize(count: 1)</span><br><span class="line">        mutex.deallocate()</span><br><span class="line">#if os(macOS) || os(iOS) || os(Windows)</span><br><span class="line">        deallocateTimedLockData(cond: timeoutCond, mutex: timeoutMutex)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    open func lock() &#123;</span><br><span class="line">        pthread_mutex_lock(mutex)</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    open func unlock() &#123;</span><br><span class="line">        pthread_mutex_unlock(mutex)</span><br><span class="line">#if os(macOS) || os(iOS)</span><br><span class="line">        &#x2F;&#x2F; Wakeup any threads waiting in lock(before:)</span><br><span class="line">        pthread_mutex_lock(timeoutMutex)</span><br><span class="line">        pthread_cond_broadcast(timeoutCond)</span><br><span class="line">        pthread_mutex_unlock(timeoutMutex)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    open func &#96;try&#96;() -&gt; Bool &#123;</span><br><span class="line">        return pthread_mutex_trylock(mutex) &#x3D;&#x3D; 0</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    open func lock(before limit: Date) -&gt; Bool &#123;</span><br><span class="line">        if pthread_mutex_trylock(mutex) &#x3D;&#x3D; 0 &#123;</span><br><span class="line">            return true</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">#if os(macOS) || os(iOS) || os(Windows)</span><br><span class="line">        return timedLock(mutex: mutex, endTime: limit, using: timeoutCond, with: timeoutMutex)</span><br><span class="line">#else</span><br><span class="line">        guard var endTime &#x3D; timeSpecFrom(date: limit) else &#123;</span><br><span class="line">            return false</span><br><span class="line">        &#125;</span><br><span class="line">        return pthread_mutex_timedlock(mutex, &amp;endTime) &#x3D;&#x3D; 0</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    open var name: String?</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>嗯哼？？？怎么跟NSLock中的源码没有什么区别？在<code>init()</code>中有略微的不同</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">public override init() &#123;</span><br><span class="line">    super.init()</span><br><span class="line">    var attrib &#x3D; pthread_mutexattr_t()</span><br><span class="line"></span><br><span class="line">    withUnsafeMutablePointer(to: &amp;attrib) &#123; attrs in</span><br><span class="line">        pthread_mutexattr_init(attrs)</span><br><span class="line">        &#x2F;&#x2F; 设置互斥锁的类型 RECURSIVE（递归）</span><br><span class="line">        pthread_mutexattr_settype(attrs, Int32(PTHREAD_MUTEX_RECURSIVE))</span><br><span class="line">        pthread_mutex_init(mutex, attrs)</span><br><span class="line">    &#125;</span><br><span class="line">#if os(macOS) || os(iOS)</span><br><span class="line">    pthread_cond_init(timeoutCond, nil)</span><br><span class="line">    pthread_mutex_init(timeoutMutex, nil)</span><br><span class="line">#endif</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这下就清晰了，NSRecursiveLock在内部是一个互斥锁设置了递归的类型，只有这一点点的区别，就导致上方的代码运行出现那么大的区别。</p>
+<h3 id="lock的位置"><a href="#lock的位置" class="headerlink" title="lock的位置"></a>lock的位置</h3><p>我们继续看上方的代码，把lock的位置放在2.的位置。分别打开NSLock和NSRecursiveLock看看有什么不同：</p>
+<ol>
+<li><p>打开NSLock</p>
+ <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">2021-05-20 00:05:11.816871+0800 LockDemo[10150:520495] i &#x3D; 0, current value &#x3D; 10</span><br></pre></td></tr></table></figure>
+
+<p> 只有一条输出？</p>
+<p> 因为<code>NSLock</code>只是一个互斥锁，执行了<code>lock</code>操作之后，就必须等待<code>unlock</code>才能继续执行，否则就一直等待。</p>
+</li>
+<li><p>打开NSRecursiveLock</p>
+<p> <img src="lock-3.jpg" alt=""></p>
+<p> 竟然发生了crash，但是current value的值是有序的，i的值却是无序的，这是个啥情况？</p>
+<p> 也就是说，递归锁我用了，但是递归执行中，线程与线程直接，递归没有直接的联系，也就是递归锁在多线程中跑偏了~造成了锁内部发生了错乱，导致了crash。</p>
+</li>
+</ol>
+<p>所以啊，别总乱加锁。那么有人可能会说，我直接在调用的时候加锁不就可以了吗，还很省事，不用担心发生crash。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[lock lock];</span><br><span class="line">testMethod(10);</span><br><span class="line">[lock unlock];</span><br></pre></td></tr></table></figure>
+
+<p>肯定不行啊，这样只是控制了，递归调用不会出现问题，但是i的值呢？</p>
+<p><img src="lock-4.jpg" alt=""></p>
+<p>不管你这这里使用NSLock或NSRecursiveLock都是一样的效果。所以，这种情况，我们经常会使用<code>@synchronized (self)</code>，不用管什么时候加锁和什么时候解锁，也不用担心会发生等待、崩溃。而且性能上，并没有差多少。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">testMethod &#x3D; ^(int value) &#123;</span><br><span class="line">    @synchronized (self) &#123;</span><br><span class="line">        if (value &gt; 0) &#123;</span><br><span class="line">            NSLog(@&quot;i &#x3D; %d, current value &#x3D; %d&quot;, i, value);</span><br><span class="line">            testMethod(value - 1);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="NSCondition-条件变量"><a href="#NSCondition-条件变量" class="headerlink" title="NSCondition 条件变量"></a>NSCondition 条件变量</h1><p><code>NSCondition</code>的对象实际上作为一个锁和一个线程检查器：锁主要为了当检测条件时保护数据源，执行条件引发的任务；线程检查器主要是根据条件决定是否继续运行线程，即线程是否被阻塞。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">@interface NSCondition : NSObject &lt;NSLocking&gt; &#123;</span><br><span class="line">&#x2F;&#x2F; 让当前线程处于等待状态</span><br><span class="line">- (void)wait;</span><br><span class="line">&#x2F;&#x2F; 在时间到达之前让当前线程一直等待</span><br><span class="line">- (BOOL)waitUntilDate:(NSDate *)limit;</span><br><span class="line">&#x2F;** </span><br><span class="line"> * CPU发送信号，唤醒等待条件的一个线程，可以执行。可以多次调用，唤醒多个线程。</span><br><span class="line"> * 没有线程等待，则什么也不处理。只有在被锁的情况下才可以调用</span><br><span class="line"> *&#x2F;</span><br><span class="line">- (void)signal;</span><br><span class="line">&#x2F;**</span><br><span class="line"> * 唤醒等待的所有线程，如果没有等待，则什么也不做。只有在被锁的情况下才可以调用</span><br><span class="line"> *&#x2F; </span><br><span class="line">- (void)broadcast;</span><br><span class="line"></span><br><span class="line">@property (nullable, copy) NSString *name;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 一般用于多线程同时访问、修改同一个数据源，保证在同一 时间内数据源只被访问、修改一次，其他线程的命令需要在lock外等待，只到unlock ，才可访问</span><br><span class="line">- (void)lock;</span><br><span class="line">&#x2F;&#x2F; 与lock同时使用。</span><br><span class="line">- (void)unlock;</span><br></pre></td></tr></table></figure>
+
+<p>接下来我们看代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">- (void)conditionTest &#123;</span><br><span class="line">    self.ticketCount &#x3D; 0;</span><br><span class="line">    for (int i &#x3D; 0; i &lt; 100; i++) &#123;</span><br><span class="line">        dispatch_async(dispatch_get_global_queue(0, 0), ^&#123;</span><br><span class="line">            [self addTicket];</span><br><span class="line">        &#125;);</span><br><span class="line">        dispatch_async(dispatch_get_global_queue(0, 0), ^&#123;</span><br><span class="line">            [self saleTicket];</span><br><span class="line">        &#125;);</span><br><span class="line">        dispatch_async(dispatch_get_global_queue(0, 0), ^&#123;</span><br><span class="line">            [self saleTicket];</span><br><span class="line">        &#125;);</span><br><span class="line">        dispatch_async(dispatch_get_global_queue(0, 0), ^&#123;</span><br><span class="line">            [self addTicket];</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (void)addTicket &#123;</span><br><span class="line">    self.ticketCount +&#x3D; 1;</span><br><span class="line">    NSLog(@&quot;有票了 %ld&quot;, self.ticketCount);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (void)saleTicket &#123;</span><br><span class="line">    self.ticketCount -&#x3D; 1;</span><br><span class="line">    NSLog(@&quot;卖了一张 %ld&quot;, self.ticketCount);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>运行一下代码。</p>
+<p><img src="NSCondition-1.jpg" alt=""></p>
+<p>都有可能卖超了。怎么解决这个问题，虽然上面的锁能解决，但是我们使用NSCondition来处理。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">- (void)addTicket &#123;</span><br><span class="line">    &#x2F;&#x2F; 加锁</span><br><span class="line">    [self.condition lock];</span><br><span class="line">    self.ticketCount +&#x3D; 1;</span><br><span class="line">    NSLog(@&quot;有票了 count &#x3D; %ld&quot;, self.ticketCount);</span><br><span class="line">    &#x2F;&#x2F; 通知，有票了，等待的线程可以执行了</span><br><span class="line">    [self.condition signal];</span><br><span class="line">    &#x2F;&#x2F; 解锁</span><br><span class="line">    [self.condition unlock];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (void)saleTicket &#123;</span><br><span class="line">    &#x2F;&#x2F; 加锁</span><br><span class="line">    [self.condition lock];</span><br><span class="line">    if (self.ticketCount &#x3D;&#x3D; 0) &#123;</span><br><span class="line">        NSLog(@&quot;wait...没有票了 count &#x3D; 0&quot;);</span><br><span class="line">        &#x2F;&#x2F; 没有票，就等待，不执行，等到有票了再执行</span><br><span class="line">        [self.condition wait];</span><br><span class="line">    &#125;</span><br><span class="line">    &#x2F;&#x2F; 有票了，就执行了</span><br><span class="line">    self.ticketCount -&#x3D; 1;</span><br><span class="line">    NSLog(@&quot;卖了一张 count &#x3D; %ld&quot;, self.ticketCount);</span><br><span class="line">    [self.condition unlock];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>运行一下，看看结果</p>
+<p><img src="NSCondition-2.jpg" alt=""></p>
+<p>很是完美，<code>NSCondition</code>条件变量是很少使用的，因为用起来比较麻烦。其主要的点就是在什么时候执行<code>wait</code>、什么时候发送<code>signal</code>。</p>
+<p>看了代码的运用，我们看看内部是怎么实现的。</p>
+<h2 id="NSCondition-内部实现"><a href="#NSCondition-内部实现" class="headerlink" title="NSCondition 内部实现"></a>NSCondition 内部实现</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br></pre></td><td class="code"><pre><span class="line">open class NSCondition: NSObject, NSLocking &#123;</span><br><span class="line">    internal var mutex &#x3D; _MutexPointer.allocate(capacity: 1)</span><br><span class="line">    &#x2F;&#x2F; 条件</span><br><span class="line">    internal var cond &#x3D; _ConditionVariablePointer.allocate(capacity: 1)</span><br><span class="line"></span><br><span class="line">    public override init() &#123;</span><br><span class="line">#if os(Windows)</span><br><span class="line">        InitializeSRWLock(mutex)</span><br><span class="line">        InitializeConditionVariable(cond)</span><br><span class="line">#else</span><br><span class="line">        &#x2F;&#x2F; 内部封装了pthread 的互斥锁</span><br><span class="line">        pthread_mutex_init(mutex, nil)</span><br><span class="line">        pthread_cond_init(cond, nil)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    deinit &#123;</span><br><span class="line">#if os(Windows)</span><br><span class="line">        &#x2F;&#x2F; SRWLock do not need to be explicitly destroyed</span><br><span class="line">#else</span><br><span class="line">        pthread_mutex_destroy(mutex)</span><br><span class="line">        pthread_cond_destroy(cond)</span><br><span class="line">#endif</span><br><span class="line">        mutex.deinitialize(count: 1)</span><br><span class="line">        cond.deinitialize(count: 1)</span><br><span class="line">        mutex.deallocate()</span><br><span class="line">        cond.deallocate()</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    open func lock() &#123;</span><br><span class="line">#if os(Windows)</span><br><span class="line">        AcquireSRWLockExclusive(mutex)</span><br><span class="line">#else</span><br><span class="line">        pthread_mutex_lock(mutex)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    open func unlock() &#123;</span><br><span class="line">#if os(Windows)</span><br><span class="line">        ReleaseSRWLockExclusive(mutex)</span><br><span class="line">#else</span><br><span class="line">        pthread_mutex_unlock(mutex)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    &#x2F;&#x2F; 等待</span><br><span class="line">    open func wait() &#123;</span><br><span class="line">#if os(Windows)</span><br><span class="line">        SleepConditionVariableSRW(cond, mutex, WinSDK.INFINITE, 0)</span><br><span class="line">#else</span><br><span class="line">        pthread_cond_wait(cond, mutex)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    open func wait(until limit: Date) -&gt; Bool &#123;</span><br><span class="line">#if os(Windows)</span><br><span class="line">        return SleepConditionVariableSRW(cond, mutex, timeoutFrom(date: limit), 0)</span><br><span class="line">#else</span><br><span class="line">        guard var timeout &#x3D; timeSpecFrom(date: limit) else &#123;</span><br><span class="line">            return false</span><br><span class="line">        &#125;</span><br><span class="line">        return pthread_cond_timedwait(cond, mutex, &amp;timeout) &#x3D;&#x3D; 0</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    &#x2F;&#x2F; 发送信号</span><br><span class="line">    open func signal() &#123;</span><br><span class="line">#if os(Windows)</span><br><span class="line">        WakeConditionVariable(cond)</span><br><span class="line">#else</span><br><span class="line">        pthread_cond_signal(cond)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    &#x2F;&#x2F; 唤醒所有条件</span><br><span class="line">    open func broadcast() &#123;</span><br><span class="line">#if os(Windows)</span><br><span class="line">        WakeAllConditionVariable(cond)</span><br><span class="line">#else</span><br><span class="line">        &#x2F;&#x2F; 根据window的释义，唤醒所有条件锁</span><br><span class="line">        pthread_cond_broadcast(cond)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    open var name: String?</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>NSCondition内部封装的是一个pthread的互斥锁。</p>
+<h1 id="NSConditionLock-条件锁"><a href="#NSConditionLock-条件锁" class="headerlink" title="NSConditionLock 条件锁"></a>NSConditionLock 条件锁</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 初始化当前的条件</span><br><span class="line">- (instancetype)initWithCondition:(NSInteger)condition;</span><br><span class="line">&#x2F;&#x2F; 只读，当前的条件</span><br><span class="line">@property (readonly) NSInteger condition;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 当前线程加锁，如果当前条件与参数一致，则执行，否则等待，直到有对应的条件被解锁。</span><br><span class="line">- (void)lockWhenCondition:(NSInteger)condition;</span><br><span class="line">&#x2F;&#x2F; 解锁，然后把条件传尽来，如果有等待的线程，并且条件与condition相同则执行，没有不处理。</span><br><span class="line">- (void)unlockWithCondition:(NSInteger)condition;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 加锁，没有条件，可以的话直接执行</span><br><span class="line">- (void)lock;</span><br><span class="line">&#x2F;&#x2F; 解锁</span><br><span class="line">- (void)unlock;</span><br></pre></td></tr></table></figure>
+
+<p>接下来，看一下代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">- (void)conditonLockTest &#123;</span><br><span class="line">    NSConditionLock *conditionLock &#x3D; [[NSConditionLock alloc] initWithCondition:2];</span><br><span class="line">    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^&#123;</span><br><span class="line">&#x2F;&#x2F;        [conditionLock lockWhenCondition:1];</span><br><span class="line">        NSLog(@&quot;1&quot;);</span><br><span class="line">&#x2F;&#x2F;         [conditionLock unlockWithCondition:0];</span><br><span class="line">    &#125;);</span><br><span class="line">    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^&#123;</span><br><span class="line">&#x2F;&#x2F;        [conditionLock lockWhenCondition:2];</span><br><span class="line">        NSLog(@&quot;2&quot;);</span><br><span class="line">&#x2F;&#x2F;        [conditionLock unlockWithCondition:1];</span><br><span class="line">    &#125;);</span><br><span class="line">    </span><br><span class="line">    dispatch_async(dispatch_get_global_queue(0, 0), ^&#123;</span><br><span class="line">&#x2F;&#x2F;       [conditionLock lock];</span><br><span class="line">       NSLog(@&quot;3&quot;);</span><br><span class="line">&#x2F;&#x2F;       [conditionLock unlock];</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们先不使用<code>NSConditionLock</code>，跑一下代码看看，输出情况：</p>
+<p>根据之前GCD全局队列的内容，该输出可能很随意，每次输出都可能不一样。那接下来把注释的代码打开，在有锁的情况下，再跑一次。</p>
+<p>这次的输出结果为：3-2-1，也有可能是2-3-1。<br>因为初始的<code>NSConditionLock</code>的条件是2，而且是全局并发队列，所以2和3都有可能先执行，但是1肯定是最后执行。因为在2执行完毕之后，才解锁，并把条件该成了1。这个时候才通知条件为1的锁执行。</p>
+<p>条件锁有点类似信号量。</p>
+<h2 id="NSConditionLock-源码："><a href="#NSConditionLock-源码：" class="headerlink" title="NSConditionLock 源码："></a>NSConditionLock 源码：</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br></pre></td><td class="code"><pre><span class="line">open class NSConditionLock : NSObject, NSLocking &#123;</span><br><span class="line">    &#x2F;&#x2F; 内部封装了一个NSCondition</span><br><span class="line">    internal var _cond &#x3D; NSCondition()</span><br><span class="line">    &#x2F;&#x2F; int类型的数据，当做锁的条件</span><br><span class="line">    internal var _value: Int</span><br><span class="line">    internal var _thread: _swift_CFThreadRef?</span><br><span class="line">    </span><br><span class="line">    &#x2F;&#x2F; 默认init操作，condition &#x3D;&#x3D; 0</span><br><span class="line">    public convenience override init() &#123;</span><br><span class="line">        self.init(condition: 0)</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    public init(condition: Int) &#123;</span><br><span class="line">        _value &#x3D; condition</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    &#x2F;&#x2F; 加锁</span><br><span class="line">    open func lock() &#123;</span><br><span class="line">        let _ &#x3D; lock(before: Date.distantFuture)</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    &#x2F;&#x2F; 解锁，直接_thread&#x3D;nil，并且唤醒其他线程</span><br><span class="line">    open func unlock() &#123;</span><br><span class="line">        _cond.lock()</span><br><span class="line">#if os(Windows)</span><br><span class="line">        _thread &#x3D; INVALID_HANDLE_VALUE</span><br><span class="line">#else</span><br><span class="line">        _thread &#x3D; nil</span><br><span class="line">#endif</span><br><span class="line">        _cond.broadcast()</span><br><span class="line">        _cond.unlock()</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    &#x2F;&#x2F; 可读的condition</span><br><span class="line">    open var condition: Int &#123;</span><br><span class="line">        return _value</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    &#x2F;&#x2F; 加锁，并且当条件满足时执行，</span><br><span class="line">    open func lock(whenCondition condition: Int) &#123;</span><br><span class="line">        &#x2F;&#x2F; 这里详细说明</span><br><span class="line">        let _ &#x3D; lock(whenCondition: condition, before: Date.distantFuture)</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    open func &#96;try&#96;() -&gt; Bool &#123;</span><br><span class="line">        return lock(before: Date.distantPast)</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    open func tryLock(whenCondition condition: Int) -&gt; Bool &#123;</span><br><span class="line">        return lock(whenCondition: condition, before: Date.distantPast)</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    &#x2F;&#x2F; 解锁，并且设置条件</span><br><span class="line">    open func unlock(withCondition condition: Int) &#123;</span><br><span class="line">        _cond.lock()</span><br><span class="line">#if os(Windows)</span><br><span class="line">        _thread &#x3D; INVALID_HANDLE_VALUE</span><br><span class="line">#else</span><br><span class="line">        _thread &#x3D; nil</span><br><span class="line">#endif</span><br><span class="line">        &#x2F;&#x2F; 设置条件锁的条件，并且执行等待的条件锁</span><br><span class="line">        _value &#x3D; condition</span><br><span class="line">        _cond.broadcast()</span><br><span class="line">        _cond.unlock()</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    open func lock(before limit: Date) -&gt; Bool &#123;</span><br><span class="line">        _cond.lock()</span><br><span class="line">        while _thread !&#x3D; nil &#123;</span><br><span class="line">            if !_cond.wait(until: limit) &#123;</span><br><span class="line">                _cond.unlock()</span><br><span class="line">                return false</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">#if os(Windows)</span><br><span class="line">        _thread &#x3D; GetCurrentThread()</span><br><span class="line">#else</span><br><span class="line">        _thread &#x3D; pthread_self()</span><br><span class="line">#endif</span><br><span class="line">        _cond.unlock()</span><br><span class="line">        return true</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    &#x2F;&#x2F; </span><br><span class="line">    open func lock(whenCondition condition: Int, before limit: Date) -&gt; Bool &#123;</span><br><span class="line">        &#x2F;&#x2F; NSCondition 加锁</span><br><span class="line">        _cond.lock()</span><br><span class="line">        &#x2F;&#x2F; 这里是一个while循环，当条件不满足时，就一直循环下去，除非不是等待状态。</span><br><span class="line">        while _thread !&#x3D; nil || _value !&#x3D; condition &#123;</span><br><span class="line">            if !_cond.wait(until: limit) &#123;</span><br><span class="line">                _cond.unlock()</span><br><span class="line">                return false</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        &#x2F;&#x2F; 当条件满足，直接跳出while循环，向下执行。</span><br><span class="line">#if os(Windows)</span><br><span class="line">        _thread &#x3D; GetCurrentThread()</span><br><span class="line">#else</span><br><span class="line">        _thread &#x3D; pthread_self()</span><br><span class="line">#endif</span><br><span class="line">        _cond.unlock()</span><br><span class="line">        return true</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    open var name: String?</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>NSConditionLock内部封装了NSCondtion，使用起来比<code>NSCondtion</code>更加方便。这个也是一个互斥锁。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p><img src="lock-cmp.jpg" alt=""></p>
+<ul>
+<li>@synchronized(obj)<ul>
+<li>objc_sync_enter加锁、objc_sync_exit解锁</li>
+<li>查找obj的流程：当前链表查找 - 线程池中查找 - hash表中查找</li>
+<li>不要乱用obj</li>
+</ul>
+</li>
+<li>NSLock - pthread的互斥锁<ul>
+<li>在递归调用中会发生等待</li>
+</ul>
+</li>
+<li>NSRecursiveLock - 递归锁，封装的也是互斥锁，内部原理与NSLock一致，只是设置了递归的类型。<ul>
+<li>注意递归锁，在多线程中会发生crash</li>
+</ul>
+</li>
+<li>NSCondtion - 互斥锁<ul>
+<li>注意wait和signal调用时机</li>
+</ul>
+</li>
+<li>NSConditionLock - 互斥锁<ul>
+<li>内部封装了NSCondtion</li>
+</ul>
+</li>
+</ul>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+        
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block home" lang="zh-CN">
     <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/05/16/OC%E5%8E%9F%E7%90%86/%E9%94%81%E7%9A%84%E5%8E%9F%E7%90%86/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1864,201 +2046,6 @@
   
   
 
-        
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block home" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/05/08/OC%E5%8E%9F%E7%90%86/KVC%E5%8E%9F%E7%90%86/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.jpg">
-      <meta itemprop="name" content="不会飞的小白">
-      <meta itemprop="description" content="一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="不会飞的小白">
-    </span>
-      <header class="post-header">
-        <h1 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/05/08/OC%E5%8E%9F%E7%90%86/KVC%E5%8E%9F%E7%90%86/" class="post-title-link" itemprop="url">KVC原理</a>
-        </h1>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-05-08 08:39:49" itemprop="dateCreated datePublished" datetime="2021-05-08T08:39:49+08:00">2021-05-08</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="fa fa-calendar-check-o"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-05-10 16:35:30" itemprop="dateModified" datetime="2021-05-10T16:35:30+08:00">2021-05-10</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/OC%E5%8E%9F%E7%90%86/" itemprop="url" rel="index"><span itemprop="name">OC原理</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="KVC"><a href="#KVC" class="headerlink" title="KVC"></a>KVC</h1><p>官方文档：<a href="https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/KeyValueCoding/index.html#//apple_ref/doc/uid/10000107-SW1" target="_blank" rel="noopener">About Key-Value Coding</a></p>
-<blockquote>
-<p>Key-value coding is a mechanism enabled by the NSKeyValueCoding informal protocol that objects adopt to provide indirect access to their properties. When an object is key-value coding compliant, its properties are addressable via string parameters through a concise, uniform messaging interface. This indirect access mechanism supplements the direct access afforded by instance variables and their associated accessor methods.</p>
-</blockquote>
-<p>键值编码是由<code>NSKeyValueCoding</code>非正式协议启用的一种机制，对象采用这种机制来提供对其属性的间接访问。当对象是键值编码兼容的对象时，可以通过简洁，统一的消息传递接口通过字符串参数来访问其属性。这种间接访问机制补充了实例变量及其关联的访问器方法提供的直接访问。</p>
-<h1 id="KVC-API"><a href="#KVC-API" class="headerlink" title="KVC - API"></a>KVC - API</h1><h2 id="1-常用方法"><a href="#1-常用方法" class="headerlink" title="1. 常用方法"></a>1. 常用方法</h2><ul>
-<li><p>获取key对应的value：</p>
-  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">- (nullable id)valueForKey:(NSString *)key;</span><br></pre></td></tr></table></figure>
-</li>
-<li><p>通过key来设置value：</p>
-  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">- (void)setValue:(nullable id)value forKey:(NSString *)key;</span><br></pre></td></tr></table></figure>
-</li>
-<li><p>通过路径取值，一般情况下是model1中有一个model2，获取model2的属性值。</p>
-  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">- (nullable id)valueForKeyPath:(NSString *)keyPath;</span><br></pre></td></tr></table></figure>
-</li>
-<li><p>获取对应路径的值，一般情况下是model1中有一个model2，设置model2的属性值。</p>
-  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">- (void)setValue:(nullable id)value forKeyPath:(NSString *)keyPath;</span><br></pre></td></tr></table></figure>
-</li>
-<li><p>获取一个可变类型：</p>
-  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">- (NSMutableArray *)mutableArrayValueForKey:(NSString *)key;</span><br><span class="line"></span><br><span class="line">- (NSMutableSet *)mutableSetValueForKey:(NSString *)key;</span><br></pre></td></tr></table></figure>
-</li>
-<li><p>默认返回YES，如果当前没有设置key对应的属性（没有找到set<key>方法），会按照_key, _iskey, key, iskey的顺序搜索变量。如果返回NO，则不查询。</p>
-  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">+ (BOOL)accessInstanceVariablesDirectly;</span><br></pre></td></tr></table></figure>
-</li>
-<li><p>如果你在SetValue方法时面给Value传nil，则会调用这个方法</p>
-  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">- (void)setNilValueForKey:(NSString *)key;</span><br></pre></td></tr></table></figure>
-</li>
-<li><p>如果Key不存在，且KVC无法搜索到任何和Key有关的字段或者属性，则会调用这个方法，默认是抛出异常。</p>
-  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">- (nullable id)valueForUndefinedKey:(NSString *)key;</span><br><span class="line"></span><br><span class="line">- (void)setValue:(nullable id)value forUndefinedKey:(NSString *)key;</span><br></pre></td></tr></table></figure>
-</li>
-<li><p>KVC提供属性值正确性验证的API，它可以用来检查set的值是否正确、为不正确的值做一个替换值或者拒绝设置新值并返回错误原因。</p>
-  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">- (BOOL)validateValue:(inout id __nullable * __nonnull)ioValue forKey:(NSString *)inKey error:(out NSError **)outError;</span><br></pre></td></tr></table></figure>
-
-
-</li>
-</ul>
-<h2 id="2-set、get流程"><a href="#2-set、get流程" class="headerlink" title="2. set、get流程"></a>2. set、get流程</h2><p>声明一个Person类，声明4个变量。注意这里没有添加属性（添加属性默认会生成set、get方法），就是为了验证set、get流程。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">@interface Person : NSObject</span><br><span class="line">&#123;</span><br><span class="line">    NSString *_name;    &#x2F;&#x2F; 1.</span><br><span class="line">    NSString *_isName;  &#x2F;&#x2F; 2.</span><br><span class="line">    NSString *name;     &#x2F;&#x2F; 3.</span><br><span class="line">    NSString *isName;   &#x2F;&#x2F; 4.</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br></pre></td></tr></table></figure>
-
-<p>调用<code>setValue:forKey</code>方法，然后打印</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">Person *person &#x3D; [[Person alloc] init];</span><br><span class="line">&#x2F;&#x2F; KVC - 设置值的过程 setValue 分析调用过程</span><br><span class="line">[person setValue:@&quot;kvc&quot; forKey:@&quot;name&quot;];</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 1.</span><br><span class="line">NSLog(@&quot;%@-%@-%@-%@&quot;,person-&gt;_name,person-&gt;_isName,person-&gt;name,person-&gt;isName);</span><br><span class="line">&#x2F;&#x2F; 2.</span><br><span class="line">&#x2F;&#x2F;NSLog(@&quot;%@-%@-%@&quot;,person-&gt;_isName,person-&gt;name,person-&gt;isName);</span><br><span class="line">&#x2F;&#x2F; 3.</span><br><span class="line">&#x2F;&#x2F;NSLog(@&quot;%@-%@&quot;,person-&gt;name,person-&gt;isName);</span><br><span class="line">&#x2F;&#x2F; 4.</span><br><span class="line">&#x2F;&#x2F;NSLog(@&quot;%@&quot;,person-&gt;isName);</span><br></pre></td></tr></table></figure>
-
-<p>分别按照顺序1-2-3-4，每次注释一个变量，每次只执行一句<code>NSLog</code>，看看打印结果：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 1.</span><br><span class="line">kvc-(nill)-(nill)-(nill)</span><br><span class="line">&#x2F;&#x2F; 2.</span><br><span class="line">kvc-(nill)-(nill)</span><br><span class="line">&#x2F;&#x2F; 3.</span><br><span class="line">kvc-(nill)</span><br><span class="line">&#x2F;&#x2F; 4.</span><br><span class="line">kvc</span><br></pre></td></tr></table></figure>
-
-<p>为了进一步验证，可以在<code>Person.m</code>中，实现对应的set和get方法，分别打断点，按照1-2-3-4的顺序分别注释，可以进一步验证，set、get的流程。</p>
-<p><code>setValue:forKey:</code>：按照<code>set&lt;key&gt;, _set&lt;key&gt;, setIs&lt;key&gt;</code>进行设置。有一个执行，其他的不执行。</p>
-<blockquote>
-<p>注意：<code>_setIs&lt;key&gt;</code>这个方法不会执行。</p>
-</blockquote>
-<p><code>valueForKey</code>：按照<code>get&lt;key&gt;, &lt;key&gt;, is&lt;key&gt;, _&lt;key&gt;</code>顺序进行查找。有一个执行，不执行其他的。</p>
-<p>这里有官方的设置key-value的流程：<a href="https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/KeyValueCoding/SearchImplementation.html#//apple_ref/doc/uid/20000955-CJBBBFFA" target="_blank" rel="noopener">Accessor Search Patterns</a>，写的很详细。</p>
-<h3 id="2-1-Get-流程"><a href="#2-1-Get-流程" class="headerlink" title="2.1 Get 流程"></a>2.1 Get 流程</h3><ol>
-<li>按照访问方法<code>-get&lt;Key&gt;，-&lt;key&gt;，-is&lt;Key&gt;，-_&lt;key&gt;</code>的顺序进行查找，如果找到执行步奏【5】。否则执行步奏【2】。</li>
-<li>在实例中搜索①<code>countOf&lt;Key&gt;</code>，②<code>objectIn&lt;Key&gt;AtIndex:</code>（与<code>NSArray</code>类定义的原始方法<code>&lt;key&gt;AtIndexes:</code>相对应）或③<code>objectsAtIndexes:</code>（与NSArray方法相对应）。如果找到①，再找到②或③中的一个，则创建一个响应所有NSArray方法的集合代理对象并将其返回。否则，请继续执行步骤【3】。</li>
-<li>如果找到了①<code>countOf&lt;Key&gt;</code>，没有找到②或③，那么会去找<code>enumeratorOf&lt;Key&gt;</code>和<code>memberOf&lt;Key&gt;:</code>（对应NSSet类）。如果找到了所有三个方法，则创建一个响应所有NSSet方法的集合代理对象并将其返回。否则，请继续执行步骤【4】。</li>
-<li>如果接收器的类方法<code>+(BOOL)accessInstanceVariablesDirectly</code>返回YES，则按照<code>_&lt;key&gt;，_is&lt;Key&gt;，&lt;key&gt;，is&lt;Key&gt;</code>的顺序搜索实例变量。如果找到，直接获取实例变量的值，然后继续执行步骤【5】。否则，继续执行步骤【6】。</li>
-<li>如果获取到的变量是对象指针，则只需返回结果。<br> 如果该值是可以转换位<code>NSNumber</code>类型，则将其存储在NSNumber实例中并返回该实例。<br> 如果结果是<code>NSNumber</code>不支持的类型，请转换为<code>NSValue</code>对象并返回该对象。</li>
-<li>如果其他所有方法均失败，则调用<code>valueForUndefinedKey:</code>。默认情况下会引发异常。</li>
-</ol>
-<h3 id="2-2-Set流程"><a href="#2-2-Set流程" class="headerlink" title="2.2 Set流程"></a>2.2 Set流程</h3><ol>
-<li>按此顺序查找第一个名为<code>set&lt;Key&gt;:, _set&lt;Key&gt;:, setIsName:</code>的set方法。如果找到，调用它并完成。</li>
-<li>如果没有找到，如果类方法<code>+(BOOL)accessInstanceVariablesDirectly</code>返回YES，则按照顺序<code>_&lt;key&gt;，_is&lt;Key&gt;，&lt;key&gt;，is&lt;Key&gt;</code>查找实例变量。如果找到，则直接对变量进行赋值。</li>
-<li>如果步奏【1】和【2】都失败了，则调用<code>setValue:forUndefinedKey:</code>。默认情况下会引发异常。</li>
-</ol>
-<h1 id="集合类型"><a href="#集合类型" class="headerlink" title="集合类型"></a>集合类型</h1><h2 id="1-集合类型"><a href="#1-集合类型" class="headerlink" title="1. 集合类型"></a>1. 集合类型</h2><p>在<code>Person</code>类中，声明一个不可变数组</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">@property (nonatomic, copy) NSArray *array;</span><br></pre></td></tr></table></figure>
-
-<p>对不可变类型进行赋值时，可以使用<code>mutableArrayValueForKey</code>先获取一个可变数组，然后直接赋值就好。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">person.array &#x3D; @[@&quot;1&quot;,@&quot;2&quot;,@&quot;3&quot;];</span><br><span class="line">&#x2F;&#x2F; 修改数组</span><br><span class="line">&#x2F;&#x2F; person.array[0] &#x3D; @&quot;100&quot;;&#x2F;&#x2F; 这种方式不可用</span><br><span class="line">&#x2F;&#x2F; 1. 获取一个新的数组 - KVC 赋值</span><br><span class="line">NSArray *array &#x3D; [person valueForKey:@&quot;array&quot;];</span><br><span class="line">array &#x3D; @[@&quot;100&quot;,@&quot;2&quot;,@&quot;3&quot;];</span><br><span class="line">[person setValue:array forKey:@&quot;array&quot;];</span><br><span class="line">NSLog(@&quot;%@&quot;,[person valueForKey:@&quot;array&quot;]);</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 2. 使用mutableArrayValueForKey</span><br><span class="line">NSMutableArray *mArray &#x3D; [person mutableArrayValueForKey:@&quot;array&quot;];</span><br><span class="line">mArray[0] &#x3D; @&quot;200&quot;;</span><br><span class="line">NSLog(@&quot;%@&quot;,[person valueForKey:@&quot;array&quot;]);</span><br></pre></td></tr></table></figure>
-
-<p>输出结果：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">2021-05-09 10:17:58.004460+0800 KVCDemo[70852:4744247] (</span><br><span class="line">    100,</span><br><span class="line">    2,</span><br><span class="line">    3</span><br><span class="line">)</span><br><span class="line">2021-05-09 10:17:58.005523+0800 KVCDemo[70852:4744247] (</span><br><span class="line">    200,</span><br><span class="line">    2,</span><br><span class="line">    3</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
-
-<p>如果声明的是一个可变数组，那通过<code>[person valueForKey:@&quot;mArray&quot;];</code>获取到的就是一个可变数组。</p>
-<h2 id="2-集合类型set、get流程补充"><a href="#2-集合类型set、get流程补充" class="headerlink" title="2. 集合类型set、get流程补充"></a>2. 集合类型set、get流程补充</h2><p>直接上代码：这里使用的key是一个没有在类中声明的变量/属性<code>pens</code>。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">person.arr &#x3D; @[@&quot;pen0&quot;, @&quot;pen1&quot;, @&quot;pen2&quot;, @&quot;pen3&quot;];</span><br><span class="line">&#x2F;&#x2F; 直接运行，在这里会发生crash</span><br><span class="line">NSArray *array &#x3D; [person valueForKey:@&quot;pens&quot;];</span><br><span class="line">NSLog(@&quot;%@&quot;,[array objectAtIndex:1]);</span><br><span class="line">NSLog(@&quot;%d&quot;,[array containsObject:@&quot;pen1&quot;]);</span><br><span class="line">    </span><br><span class="line">&#x2F;&#x2F; set 集合</span><br><span class="line">person.set &#x3D; [NSSet setWithArray:person.arr];</span><br><span class="line">NSSet *set &#x3D; [person valueForKey:@&quot;books&quot;];</span><br><span class="line">[set enumerateObjectsUsingBlock:^(id  _Nonnull obj, BOOL * _Nonnull stop) &#123;</span><br><span class="line">    NSLog(@&quot;set遍历 %@&quot;,obj);</span><br><span class="line">&#125;];</span><br></pre></td></tr></table></figure>
-
-<p>直接运行，会发生crash。</p>
-<blockquote>
-<p>*** Terminating app due to uncaught exception ‘NSUnknownKeyException’, reason: ‘[&lt;LGPerson 0x6000024610c0&gt; valueForUndefinedKey:]: this class is not key value coding-compliant for the key pens.’</p>
-</blockquote>
-<p>按照上面的流程分析，我们需要对NSArray和NSSet类型提供方法。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F;MARK: - NSArray</span><br><span class="line">&#x2F;&#x2F; 个数</span><br><span class="line">- (NSUInteger)countOfPens&#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;,__func__);</span><br><span class="line">    return [self.arr count];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 获取值</span><br><span class="line">- (id)objectInPensAtIndex:(NSUInteger)index &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;,__func__);</span><br><span class="line">    return [NSString stringWithFormat:@&quot;pens %lu&quot;, index];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F;MARK: - set</span><br><span class="line">&#x2F;&#x2F; 个数</span><br><span class="line">- (NSUInteger)countOfBooks&#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;,__func__);</span><br><span class="line">    return [self.set count];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 是否包含这个成员对象</span><br><span class="line">- (id)memberOfBooks:(id)object &#123;</span><br><span class="line">    NSLog(@&quot;%s&quot;,__func__);</span><br><span class="line">    return [self.set containsObject:object] ? object : nil;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 迭代器</span><br><span class="line">- (id)enumeratorOfBooks &#123;</span><br><span class="line">    &#x2F;&#x2F; objectEnumerator</span><br><span class="line">    NSLog(@&quot;%s&quot;,__func__);</span><br><span class="line">    return [self.arr reverseObjectEnumerator];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>补充完整上述方法，即可正常运行，对数组进行操作。</p>
-<h1 id="结构体"><a href="#结构体" class="headerlink" title="结构体"></a>结构体</h1><p>声明一个结构体类型的属性。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">typedef struct &#123;</span><br><span class="line">    float x, y, z;</span><br><span class="line">&#125; ThreeFloats;</span><br><span class="line"></span><br><span class="line">@property (nonatomic) ThreeFloats threeFloats;</span><br></pre></td></tr></table></figure>
-
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">ThreeFloats floats &#x3D; &#123;1.,2.,3.&#125;;</span><br><span class="line">NSValue *value     &#x3D; [NSValue valueWithBytes:&amp;floats objCType:@encode(ThreeFloats)];</span><br><span class="line">[person setValue:value forKey:@&quot;threeFloats&quot;];</span><br><span class="line">NSValue *value1    &#x3D; [person valueForKey:@&quot;threeFloats&quot;];</span><br><span class="line">NSLog(@&quot;%@&quot;,value1);</span><br><span class="line">    </span><br><span class="line">ThreeFloats th;</span><br><span class="line">[value1 getValue:&amp;th];</span><br><span class="line">NSLog(@&quot;%f-%f-%f&quot;,th.x,th.y,th.z);</span><br></pre></td></tr></table></figure>
-
-<p>对于结构体类型的数据，需要先转化成<code>NSValue</code>类型。常量类型会先转化成<code>NSNumber</code>类型</p>
-<h1 id="自定义KVC"><a href="#自定义KVC" class="headerlink" title="自定义KVC"></a>自定义KVC</h1><p>根据set、get流程分析，自定义主要分为以下几个流程，需要注意的是要做安全判断，防止发生异常。</p>
-<h2 id="1-kvc自定义set"><a href="#1-kvc自定义set" class="headerlink" title="1. kvc自定义set"></a>1. kvc自定义set</h2><ol>
-<li>判断key，value的情况</li>
-<li>通过传进来的key生成对应的set方法。</li>
-<li>判断生成的3种set方法是否可以被响应，可以被响应直接return。</li>
-<li>判断accessInstanceVariablesDirectly是否返回YES。</li>
-<li>判断4种实例变量是否存在，存在则赋值，否则crash异常处理。</li>
-</ol>
-<h2 id="2-KVC-自定义Get"><a href="#2-KVC-自定义Get" class="headerlink" title="2. KVC 自定义Get"></a>2. KVC 自定义Get</h2><ol>
-<li>判断key的值。</li>
-<li>生成对应的<code>-get&lt;Key&gt;，-&lt;key&gt;，-is&lt;Key&gt;，-_&lt;key&gt;</code>方法。判断是否可以响应。</li>
-<li>不响应判断get流程种NSArray的处理。</li>
-<li>不想要判断get流程种NSSet的处理。</li>
-<li>判断accessInstanceVariablesDirectly是否返回YES。</li>
-<li>判断变量是否存在，存在直接返回。</li>
-<li>异常处理。</li>
-</ol>
-<p>自定义set、get完全是按照set和get的流程处理的。代码就不上了，太占地方。</p>
-<h1 id="补充，KVC的高级使用"><a href="#补充，KVC的高级使用" class="headerlink" title="补充，KVC的高级使用"></a>补充，KVC的高级使用</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">NSArray *arrStr &#x3D; @[@&quot;1&quot;, @&quot;10&quot;, @&quot;100&quot;];</span><br><span class="line">NSArray *arrCapStr &#x3D; [arrStr valueForKey:@&quot;capitalizedString&quot;];</span><br><span class="line">    </span><br><span class="line">for (NSString *str in arrCapStr) &#123;</span><br><span class="line">    NSLog(@&quot;%@&quot;, str);</span><br><span class="line">&#125;</span><br><span class="line">    </span><br><span class="line">NSArray *arrCapStrLength &#x3D; [arrCapStr valueForKeyPath:@&quot;capitalizedString.length&quot;];</span><br><span class="line">for (NSNumber *length in arrCapStrLength) &#123;</span><br><span class="line">    NSLog(@&quot;%ld&quot;, (long)length.integerValue);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>打印出来的结果：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">1</span><br><span class="line">10</span><br><span class="line">100</span><br><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td></tr></table></figure>
-
-<p>还有关于model中嵌套model的也差不多类似，大家探索一下吧。</p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><ol>
-<li>KVC可以间接访问私有变量。</li>
-<li><code>valueForKey</code>返回key对应的类型数据。如果是不可变数组，通过<code>mutableArrayValueForKey</code>获取的也会是可变类型。</li>
-<li><code>setValue:forKey:, valueForKey:</code>的流程。</li>
-<li>自定义KVC。</li>
-</ol>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
   </div>
 
   
@@ -2131,7 +2118,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">35</span>
+          <span class="site-state-item-count">36</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>

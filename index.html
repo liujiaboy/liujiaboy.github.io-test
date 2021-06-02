@@ -171,6 +171,411 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block home" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/06/02/%E9%80%86%E5%90%91/nx-5-MachO/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="不会飞的小白">
+      <meta itemprop="description" content="一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="不会飞的小白">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          
+            <a href="/2021/06/02/%E9%80%86%E5%90%91/nx-5-MachO/" class="post-title-link" itemprop="url">MachO</a>
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-06-02 11:11:58 / 修改时间：19:13:00" itemprop="dateCreated datePublished" datetime="2021-06-02T11:11:58+08:00">2021-06-02</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h1 id="Mach-O简介"><a href="#Mach-O简介" class="headerlink" title="Mach-O简介"></a>Mach-O简介</h1><p>Mach-O其实是Mach Object文件格式的缩写，是mac以及iOS上可执行文件的格式， 类似于windows上的PE格式 (Portable Executable )， linux上的elf格式 (Executable and Linking Format)。</p>
+<p>Mach-O是一种用于可执行文件、目标代码、动态库的文件格式。作为a.out格式的替代，Mach-O提供了更强的扩展性。</p>
+<h1 id="MachO格式的常见文件"><a href="#MachO格式的常见文件" class="headerlink" title="MachO格式的常见文件"></a>MachO格式的常见文件</h1><ul>
+<li>目标文件.o </li>
+<li>库文件<ul>
+<li>.a</li>
+<li>.dylib</li>
+<li>.Framework</li>
+</ul>
+</li>
+<li>可执行文件<ul>
+<li>dyld</li>
+<li>.dsym</li>
+</ul>
+</li>
+</ul>
+<p>关于静态库、动态库，这里有一篇文章，写的很好。<br><a href="https://blog.csdn.net/liyunxiangrxm/article/details/78918147" target="_blank" rel="noopener">iOS静态库 【.a 和framework】【超详细】</a></p>
+<h2 id="clang编译"><a href="#clang编译" class="headerlink" title="clang编译"></a>clang编译</h2><p>可以通过clang命令把对应的文件编译成mach-o文件：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ clang -c test.c</span><br></pre></td></tr></table></figure>
+
+<p>就会出现一个test.o的文件，这个就是mach-o类型的文件。</p>
+<p>可以通过file命令查看文件类型。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ file [文件路径]</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 比如：</span><br><span class="line">$ file test.o</span><br><span class="line">test.o: Mach-O 64-bit object x86_64</span><br></pre></td></tr></table></figure>
+
+<p>说明test.o文件是Mach-O，64位的object，适用于x86架构，64位</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 编译为可执行文件</span><br><span class="line">$ clang text.o</span><br></pre></td></tr></table></figure>
+
+<p>这个命令会吧test.o文件转换为可执行文件，类型为.out</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ file test.out</span><br><span class="line">test.out: Mach-O 64-bit executable x86_64</span><br></pre></td></tr></table></figure>
+
+<p>text.out是一个可执行文件。</p>
+<h2 id="clang编译多个文件"><a href="#clang编译多个文件" class="headerlink" title="clang编译多个文件"></a>clang编译多个文件</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ clang -o demo test.c test1.c</span><br></pre></td></tr></table></figure>
+
+<p>就是把<code>test.c</code>和<code>test1.c</code>两个文件合并为一个可执行文件demo</p>
+<p>如果更改链接到顺序，则生成的可执行文件是不同的，md5值不同。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ clang -o demo1 test1.c test.c</span><br></pre></td></tr></table></figure>
+
+<p>可以查看一下两个文件的md5值，是不同的，命令为<code>md5 [filename]</code>。</p>
+<p>也可以通过<code>objdump</code>命令查看内容是否一样，这个命令类似于<code>MachOView</code>工具。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ objdump --macho -d [可执行文件file name]</span><br><span class="line">&#x2F;&#x2F; 查看demo可执行文件</span><br><span class="line">$ objdump --macho -d demo</span><br></pre></td></tr></table></figure>
+
+<h2 id="dyld"><a href="#dyld" class="headerlink" title="dyld"></a>dyld</h2><p>dyld（the dynamic link editor）是苹果的动态链接器，是苹果操作系统一个重要组成部分，在系统内核做好程序准备工作之后，交由dyld负责余下的工作。而且它是开源的，任何人可以通过苹果官网下载它的源码来阅读理解它的运作方式，了解系统加载动态库的细节。</p>
+<h2 id="dsym文件"><a href="#dsym文件" class="headerlink" title="dsym文件"></a>dsym文件</h2><p>当我们软件 release 模式打包或上线后，不会像我们在 Xcode 中那样直观的看到用崩溃的错误，这个时候我们就需要分析 crash report 文件了，iOS设备中会有日志文件保存我们每个应用出错的函数内存地址，通过 Xcode 的 Organizer 可以将 iOS 设备中的 DeviceLog 导出成 crash 文件，这个时候我们就可以通过出错的函数地址去查询 dSYM 文件中程序对应的函数名和文件名。大前提是我们需要有软件版本对应的 dSYM 文件，这也是为什么我们很有必要保存每个发布版本的 Archives 文件了。</p>
+<p>在release下，编译之后查看dsym文件</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ file file HookDemo.app.dSYM&#x2F;Contents&#x2F;Resources&#x2F;DWARF&#x2F;HookDemo</span><br><span class="line">HookDemo.app.dSYM&#x2F;Contents&#x2F;Resources&#x2F;DWARF&#x2F;HookDemo: Mach-O universal binary with 2 architectures: [arm_v7:Mach-O dSYM companion file arm_v7] [arm64:Mach-O 64-bit dSYM companion file arm64]</span><br><span class="line">HookDemo.app.dSYM&#x2F;Contents&#x2F;Resources&#x2F;DWARF&#x2F;HookDemo (for architecture armv7):	Mach-O dSYM companion file arm_v7</span><br><span class="line">HookDemo.app.dSYM&#x2F;Contents&#x2F;Resources&#x2F;DWARF&#x2F;HookDemo (for architecture arm64):	Mach-O 64-bit dSYM companion file arm64</span><br></pre></td></tr></table></figure>
+
+<p>这里出现了<code>universal binary</code>。这是个啥？就是通用二进制文件</p>
+<h2 id="通用二进制文件"><a href="#通用二进制文件" class="headerlink" title="通用二进制文件"></a>通用二进制文件</h2><p>mac系统所支持的cpu及硬件平台发生了很大的变化，为了解决软件在多个硬件平台上的兼容性问题，苹果开发了一个通用的二进制文件格式（Universal Binary）,又称胖二进制（Fat Binary）。</p>
+<ul>
+<li>苹果公司提出的一种程序代码。能同时适用多种架构的二进制文件</li>
+<li>同一个程序包中同时为多种架构提供最理想的性能。</li>
+<li>因为需要储存多种代码，通用二进制应用程序通常比单一平台二进制的程序要大。但是由于两种架构有共通的非执行资源(代码以外的，图片等)，所以并不会达到单一版本的两倍之多。</li>
+<li>而且由于执行中只调用一部分代码，运行起来也不需要额外的内存。</li>
+</ul>
+<p>在xcode中可以更改Mach-O Type：</p>
+<p><img src="macho_xcode.jpg" alt=""></p>
+<p>对于现在的Xcode来说，iOS11以上通过真机生成的可执行文件都是arm64架构，是单一架构。如果把最低版本修改为iOS10，重新真机编译，发现生成的可执行文件就是两种架构<code>armv7 + arm64</code>。</p>
+<p>接下来，随便找个工程，release下编译，然后查看<code>HookDemo.app -&gt; HookDemo</code>可执行文件</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ file HookDemo</span><br><span class="line">HookDemo: Mach-O universal binary with 2 architectures: [arm_v7:Mach-O executable arm_v7] [arm64:Mach-O 64-bit executable arm64]</span><br><span class="line">HookDemo (for architecture armv7):	Mach-O executable arm_v7</span><br><span class="line">HookDemo (for architecture arm64):	Mach-O 64-bit executable arm64</span><br></pre></td></tr></table></figure>
+
+<p>也可以通过<code>Targets -&gt; Build Setting - Architectures</code>修改架构，只不过目前来说都是arm64。可以添加armv7、armv7s。</p>
+<p>armv7s是一种临时的支持iPhone5c上可用的架构。</p>
+<p><a href="https://www.cnblogs.com/lulushen/p/8135269.html" target="_blank" rel="noopener">iOS 指令集架构 armv6、armv7、armv7s、arm64、arm64e、x86_64、i386</a></p>
+<p>原则上来说，架构都是向下兼容的。</p>
+<h3 id="lipo命令拆分、合并通用二进制文件"><a href="#lipo命令拆分、合并通用二进制文件" class="headerlink" title="lipo命令拆分、合并通用二进制文件"></a>lipo命令拆分、合并通用二进制文件</h3><ul>
+<li><p>查看Mach-O文件包含的架构信息</p>
+  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ lipo -info [MachO文件]</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>拆分某种架构</p>
+  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ lipo [MachO文件] –thin [架构] –output [输出文件路径]</span><br><span class="line">$ lipo HookDemo -thin armv7 -output HookDemo_armv7</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>合并多种架构</p>
+  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">lipo -create [MachO文件1] [MachO文件2] -output [生成的MachO文件]</span><br><span class="line">lipo -create HookDemo_armv7 HookDemo_arm64 -output HookDemo_v7_64</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<p>可以在通过file命令查看拆分、合并的文件。</p>
+<h1 id="Macho文件结构"><a href="#Macho文件结构" class="headerlink" title="Macho文件结构"></a>Macho文件结构</h1><ul>
+<li>Header ：包含该二进制文件的一般信息<ul>
+<li>字节顺序、架构类型、加载指令的数量等。</li>
+<li>使得可以快速确认一些信息，比如当前文件用于32位还是64位，对应的处理器是什么、文件类型是什么</li>
+</ul>
+</li>
+<li>Load commands：包含加载所需要的指令（动态库、静态库等）<ul>
+<li>内容包括区域的位置、符号表、动态符号表等</li>
+</ul>
+</li>
+<li>Data ：内容包括区域的位置、符号表、动态符号表等<ul>
+<li>包含Segement的具体数据</li>
+</ul>
+</li>
+</ul>
+<p><img src="macho_1.jpg" alt=""></p>
+<p>接下来使用MachOView工具来分析可执行文件，有两种类型：</p>
+<ol>
+<li>通用二进制文件，则显示的是Fat Binary</li>
+<li>单一架构的文件，直接显示对应的Executable</li>
+</ol>
+<p><img src="MachOView_Fat.jpg" alt=""></p>
+<h2 id="Fat-Binary"><a href="#Fat-Binary" class="headerlink" title="Fat Binary"></a>Fat Binary</h2><p>在上图中可以看到，首先是一个Fat Header的结构。在header中，可以猜到两个架构之间必定存在某些关联。</p>
+<p>armv7：offset=16384，size=79872<br>arm64：offset=98304，size=80672</p>
+<p>arm64是从98304开始的，比armv7多了 98304-(16384+79872)=2048，这个值只是一个差值，而从偏移的差值来看98304-16384=81920 = 5 * 16 * 1024</p>
+<p>正好是5页数据，iOS中1页是16k，所以armv7是5页数据，最后的2038只是第5页数据没有排满而已。</p>
+<h2 id="Header"><a href="#Header" class="headerlink" title="Header"></a>Header</h2><p>接下来看看arm64架构下的内容：</p>
+<p><img src="MachOView.png" alt=""></p>
+<p>在Xcode中，我们可以在<code>loader.h</code>文件中找到Header的相关信息：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">struct mach_header_64 &#123;</span><br><span class="line">    uint32_t    magic;      &#x2F;* 魔数，快速定位属于64还是32位 *&#x2F;</span><br><span class="line">    cpu_type_t  cputype;    &#x2F;* CPU类型 *&#x2F;</span><br><span class="line">    cpu_subtype_t   cpusubtype; &#x2F;* CPU的具体类型 *&#x2F;</span><br><span class="line">    uint32_t    filetype;   &#x2F;* 文件类型，比如可执行文件 *&#x2F;</span><br><span class="line">    uint32_t    ncmds;      &#x2F;* Load Commands的条数 *&#x2F;</span><br><span class="line">    uint32_t    sizeofcmds; &#x2F;* Load Commands的大小 *&#x2F;</span><br><span class="line">    uint32_t    flags;      &#x2F;* 标志位标识二进制文件支持的功能，主要是和系统加载、链接有关 *&#x2F;</span><br><span class="line">    uint32_t    reserved;   &#x2F;* reserved *&#x2F;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>这里只放了arm64下的内容，当然也有32位的，内容基本一致。<br>这里需要注意的是filettype类型，是一组宏定义，也能找到：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">#define	MH_OBJECT	0x1		&#x2F;* relocatable object file *&#x2F; object文件</span><br><span class="line">#define	MH_EXECUTE	0x2		&#x2F;* demand paged executable file *&#x2F; 可执行文件</span><br><span class="line">#define	MH_FVMLIB	0x3		&#x2F;* fixed VM shared library file *&#x2F;</span><br><span class="line">#define	MH_CORE		0x4		&#x2F;* core file *&#x2F;</span><br><span class="line">#define	MH_PRELOAD	0x5		&#x2F;* preloaded executable file *&#x2F;</span><br><span class="line">#define	MH_DYLIB	0x6		&#x2F;* dynamically bound shared library *&#x2F; dylib文件</span><br><span class="line">#define	MH_DYLINKER	0x7		&#x2F;* dynamic link editor *&#x2F;</span><br><span class="line">#define	MH_BUNDLE	0x8		&#x2F;* dynamically bound bundle file *&#x2F;</span><br><span class="line">#define	MH_DYLIB_STUB	0x9		&#x2F;* shared library stub for static</span><br><span class="line">					   linking only, no section contents *&#x2F;</span><br><span class="line">#define	MH_DSYM		0xa		&#x2F;* companion file with only debug</span><br><span class="line">					   sections *&#x2F; dsym文件</span><br><span class="line">#define	MH_KEXT_BUNDLE	0xb		&#x2F;* x86_64 kexts *&#x2F;</span><br><span class="line">#define MH_FILESET	0xc		&#x2F;* a file composed of other Mach-Os to</span><br><span class="line">					   be run in the same userspace sharing</span><br><span class="line">					   a single linkedit. *&#x2F;</span><br></pre></td></tr></table></figure>
+
+<p>所以当看到0x2时，标识的就是可执行文件。在MachOView中，在Header中，可以看到对应的数据信息。</p>
+<h2 id="Load-Commands"><a href="#Load-Commands" class="headerlink" title="Load Commands"></a>Load Commands</h2><table>
+<thead>
+<tr>
+<th align="left">LoadCommands</th>
+<th align="left">说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">LC_SEGMENT_64</td>
+<td align="left">将文件中（32位或64位）的段映射到进程地址空间中，<br>主要分为<strong>TEXT、</strong>DATA、LINKEDIT几大块</td>
+</tr>
+<tr>
+<td align="left">LC_DYLD_INFO_ONLY</td>
+<td align="left">动态链接相关信息</td>
+</tr>
+<tr>
+<td align="left">LC_SYMTAB</td>
+<td align="left">符号地址</td>
+</tr>
+<tr>
+<td align="left">LC_DYSYMTAB</td>
+<td align="left">动态符号表地址</td>
+</tr>
+<tr>
+<td align="left">LC_LOAD_DYLINKER</td>
+<td align="left">使用谁加载，我们使用dyld</td>
+</tr>
+<tr>
+<td align="left">LC_UUID</td>
+<td align="left">Mach-O文件的唯一识别标识 UUID</td>
+</tr>
+<tr>
+<td align="left">LC_VERSION_MIN_MACOSX</td>
+<td align="left">支持最低的操作系统版本</td>
+</tr>
+<tr>
+<td align="left">LC_SOURCE_VERSION</td>
+<td align="left">源代码版本</td>
+</tr>
+<tr>
+<td align="left">LC_MAIN</td>
+<td align="left">设置程序主线程的入口地址和栈大小<br>当别人的app做了防护时，运行就是闪退，这个时候就需要从这里找切入点</td>
+</tr>
+<tr>
+<td align="left">LC_ENCRYPTION_INFO_64</td>
+<td align="left">加密信息</td>
+</tr>
+<tr>
+<td align="left">LC_LOAD_DYLIB</td>
+<td align="left">依赖库的路径，包含三方库</td>
+</tr>
+<tr>
+<td align="left">LC_FUNCTION_STARTS</td>
+<td align="left">函数起始地址表</td>
+</tr>
+<tr>
+<td align="left">LC_CODE_SIGNATURE</td>
+<td align="left">代码签名</td>
+</tr>
+</tbody></table>
+<h3 id="LC-SEGMENT-64"><a href="#LC-SEGMENT-64" class="headerlink" title="LC_SEGMENT_64"></a>LC_SEGMENT_64</h3><p>这里面包含了一些基本信息：</p>
+<ul>
+<li><code>VM Address</code>：虚拟内存地址</li>
+<li><code>VM Size</code>：(虚拟内存)大小为4G</li>
+<li><code>File Offset</code>：数据在文件中的偏移地址</li>
+<li><code>File Size</code>：数据在文件中的大小</li>
+</ul>
+<h3 id="LC-DYLD-INFO-ONLY"><a href="#LC-DYLD-INFO-ONLY" class="headerlink" title="LC_DYLD_INFO_ONLY"></a>LC_DYLD_INFO_ONLY</h3><p>这里主要说一下<code>Rebase Info Offset</code>，这个是重定向的偏移地址。</p>
+<p>系统为了安全，在运行时，把Mach-O放在虚拟内存中，会随机生成一个<code>ASLR</code>，在运行时会进行重定向，比如查找字符串、方法等，都需要重定向，而重定向的方式是<code>ASLR</code>+<code>Rebase Info Offset</code>的值。</p>
+<h2 id="Section64"><a href="#Section64" class="headerlink" title="Section64"></a>Section64</h2><p>主要氛围两大部分：</p>
+<p>###__TEXT</p>
+<p>主要存放：代码、字符常量、类、方法等。</p>
+<table>
+<thead>
+<tr>
+<th align="left">Section</th>
+<th align="left">解释</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">__TEXT, __text</td>
+<td align="left">主程序代码段</td>
+</tr>
+<tr>
+<td align="left">__TEXT, __stubs</td>
+<td align="left">Stub可以理解为一段占位空间，placeholder，用于符号的lazy binding。</td>
+</tr>
+<tr>
+<td align="left">__TEXT, __stubs_helper</td>
+<td align="left">辅助绑定</td>
+</tr>
+<tr>
+<td align="left">__TEXT, __cstring</td>
+<td align="left">C语言字符串</td>
+</tr>
+<tr>
+<td align="left">__TEXT, __entitlements</td>
+<td align="left">__entitlements</td>
+</tr>
+<tr>
+<td align="left">__TEXT, __unwind_info</td>
+<td align="left">C语言字符串</td>
+</tr>
+<tr>
+<td align="left">__TEXT, __const</td>
+<td align="left">常量段（const修饰）</td>
+</tr>
+<tr>
+<td align="left">__TEXT, __objc_classname</td>
+<td align="left">OC的类名</td>
+</tr>
+<tr>
+<td align="left">__TEXT, __objc_methname</td>
+<td align="left">OC方法名称</td>
+</tr>
+<tr>
+<td align="left">__TEXT, __objc_methtype</td>
+<td align="left">OC方法类型，即方法签名</td>
+</tr>
+</tbody></table>
+<h3 id="DATA"><a href="#DATA" class="headerlink" title="__DATA:"></a>__DATA:</h3><table>
+<thead>
+<tr>
+<th align="left">Section</th>
+<th align="left">解释</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">__DATA_CONST, __got</td>
+<td align="left">__got</td>
+</tr>
+<tr>
+<td align="left">__DATA, __got</td>
+<td align="left">__got</td>
+</tr>
+<tr>
+<td align="left"><strong>DATA</strong>data</td>
+<td align="left">已初始化的全局变量。static int a = 1;</td>
+</tr>
+<tr>
+<td align="left">__DATA, __bss</td>
+<td align="left">未初始化的静态变量。static int a;</td>
+</tr>
+<tr>
+<td align="left">__DATA, __const</td>
+<td align="left">常量。 char * const p = “foo”;</td>
+</tr>
+<tr>
+<td align="left">__DATA, __cfstring</td>
+<td align="left">字符串（CFStringRefs）</td>
+</tr>
+<tr>
+<td align="left">__DATA, __common</td>
+<td align="left">未初始化的外部全局变量。 int a;</td>
+</tr>
+<tr>
+<td align="left">__DATA, __la_symbol_ptr</td>
+<td align="left">懒绑定的符号指针表。</td>
+</tr>
+<tr>
+<td align="left">__DATA, __nl_symbol_ptr</td>
+<td align="left">非懒绑定的符号指针表。</td>
+</tr>
+<tr>
+<td align="left">__DATA, __objc_classlist</td>
+<td align="left">OC的类列表，存储一个个指向objc_class结构体的指针</td>
+</tr>
+<tr>
+<td align="left">__DATA, __objc_nlclslist</td>
+<td align="left">OC的类列表，+load相关？</td>
+</tr>
+<tr>
+<td align="left">__DATA, __objc_catlist</td>
+<td align="left">OC的category列表，存储一个个指向__objc_category结构体的指针</td>
+</tr>
+<tr>
+<td align="left">__DATA, __objc_protolist</td>
+<td align="left">OC的协议列表，存储一个个指向protocol_t结构体的指针</td>
+</tr>
+<tr>
+<td align="left">__DATA, __objc_imginfo</td>
+<td align="left">OC的image信息</td>
+</tr>
+<tr>
+<td align="left">__DATA, __objc_selrefs</td>
+<td align="left">哪些SEL对应的字符串被引用了</td>
+</tr>
+<tr>
+<td align="left">__DATA, __objc_classrefs</td>
+<td align="left">类的引用，即msg_objSend相关</td>
+</tr>
+<tr>
+<td align="left">__DATA, __objc_superrefs</td>
+<td align="left">super引用，记录了super方法调用的类。<br>如ViewController中的viewDidLoad中调用了<code>[super viewDidLoad]</code>，<br>则ViewController class即被记录。<br>也可以理解为objc_msgSendSuper相关。</td>
+</tr>
+<tr>
+<td align="left">__DATA, __objc_protorefs</td>
+<td align="left">协议引用</td>
+</tr>
+<tr>
+<td align="left">__DATA, __objc_ivar</td>
+<td align="left">成员变量</td>
+</tr>
+<tr>
+<td align="left">__DATA, __objc_const</td>
+<td align="left">这里的const与<code>__TEXT-&gt;const</code>完全不同。<br><code>__objc_const</code>指的是OC内存布局中的不可变部分，即class_ro_t类型。</td>
+</tr>
+<tr>
+<td align="left">__DATA, __objc_data</td>
+<td align="left">保存类所需的数据？</td>
+</tr>
+</tbody></table>
+<p>篇幅原因，动态加载以及符号表下一篇再介绍。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><ul>
+<li>Mach-O简介</li>
+<li>clang命令<ul>
+<li>编译成点O文件：$ clang -c test.c</li>
+<li>把点O文件编译为可执行文件：$ clang text.o</li>
+<li>查看文件类型：$ file text.out</li>
+</ul>
+</li>
+<li>lipo命令<ul>
+<li>查看二进制文件 $ lipo -info [MachO文件]</li>
+<li>拆分为某一种架构：$ lipo [MachO文件] –thin [架构] –output [输出文件路径]</li>
+<li>合并多种架构：$ lipo -create [MachO文件1] [MachO文件2] -output [生成的MachO文件]</li>
+</ul>
+</li>
+<li>MachOView的使用<ul>
+<li>Header</li>
+<li>Load Commands</li>
+<li>Section64</li>
+</ul>
+</li>
+</ul>
+<h1 id="引用"><a href="#引用" class="headerlink" title="引用"></a>引用</h1><p><a href="https://blog.csdn.net/liyunxiangrxm/article/details/78918147" target="_blank" rel="noopener">iOS静态库 【.a 和framework】【超详细】</a><br><a href="https://www.cnblogs.com/lulushen/p/8135269.html" target="_blank" rel="noopener">iOS 指令集架构 armv6、armv7、armv7s、arm64、arm64e、x86_64、i386</a></p>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+        
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block home" lang="zh-CN">
     <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/05/30/OC%E5%8E%9F%E7%90%86/runloop/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1924,188 +2329,6 @@
   
   
 
-        
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block home" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/05/19/OC%E5%8E%9F%E7%90%86/%E9%94%81%E7%9A%84%E5%8E%9F%E7%90%86-2/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.jpg">
-      <meta itemprop="name" content="不会飞的小白">
-      <meta itemprop="description" content="一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="不会飞的小白">
-    </span>
-      <header class="post-header">
-        <h1 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/05/19/OC%E5%8E%9F%E7%90%86/%E9%94%81%E7%9A%84%E5%8E%9F%E7%90%86-2/" class="post-title-link" itemprop="url">锁的原理-2</a>
-        </h1>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-05-19 22:01:16" itemprop="dateCreated datePublished" datetime="2021-05-19T22:01:16+08:00">2021-05-19</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="fa fa-calendar-check-o"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-05-24 10:16:11" itemprop="dateModified" datetime="2021-05-24T10:16:11+08:00">2021-05-24</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/OC%E5%8E%9F%E7%90%86/" itemprop="url" rel="index"><span itemprop="name">OC原理</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="NSLock"><a href="#NSLock" class="headerlink" title="NSLock"></a>NSLock</h1><p>老规矩，直接上代码：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">NSLock *lock &#x3D; [[NSLock alloc] init];</span><br><span class="line">[lock lock];</span><br></pre></td></tr></table></figure>
-
-<p>之所以这么写，就是为了找到NSLock所在的底层库，我们在<code>[lock lock]</code>这一行打个断点，然后使用符号断点<code>symbolic breakpoint</code>添加一个<code>lock</code>的符号，全靠盲猜。因为使用符合断点是最有效的方法，有时候汇编也不一定能进去。</p>
-<p><img src="foundation_lock.jpg" alt=""></p>
-<p>很容易就找到了，这是在foundation框架中的，但是这个框架是没有开源的，怎么搞呢？</p>
-<p>还有swift源码哈~莫慌</p>
-<p>在<code>NSLock.swift</code>文件中可以找到<code>NSLock</code>的类，下方代码对其做了删减。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line">open class NSLock: NSObject, NSLocking &#123;</span><br><span class="line">    internal var mutex &#x3D; _MutexPointer.allocate(capacity: 1)</span><br><span class="line">#if os(macOS) || os(iOS) || os(Windows)</span><br><span class="line">    private var timeoutCond &#x3D; _ConditionVariablePointer.allocate(capacity: 1)</span><br><span class="line">    private var timeoutMutex &#x3D; _MutexPointer.allocate(capacity: 1)</span><br><span class="line">#endif</span><br><span class="line">    &#x2F;&#x2F; init 初始化，内部是pthread_mutex_init，是个互斥锁</span><br><span class="line">    public override init() &#123;</span><br><span class="line">        pthread_mutex_init(mutex, nil)</span><br><span class="line">#if os(macOS) || os(iOS)</span><br><span class="line">        pthread_cond_init(timeoutCond, nil)</span><br><span class="line">        pthread_mutex_init(timeoutMutex, nil)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    &#x2F;&#x2F; dealloc，析构方法</span><br><span class="line">    deinit &#123;</span><br><span class="line">        pthread_mutex_destroy(mutex)</span><br><span class="line">        mutex.deinitialize(count: 1)</span><br><span class="line">        mutex.deallocate()</span><br><span class="line">#if os(macOS) || os(iOS) || os(Windows)</span><br><span class="line">        deallocateTimedLockData(cond: timeoutCond, mutex: timeoutMutex)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    &#x2F;&#x2F; 加锁</span><br><span class="line">    open func lock() &#123;</span><br><span class="line">        pthread_mutex_lock(mutex)</span><br><span class="line">    &#125;</span><br><span class="line">    &#x2F;&#x2F; 解锁</span><br><span class="line">    open func unlock() &#123;</span><br><span class="line">        pthread_mutex_unlock(mutex)</span><br><span class="line">#if os(macOS) || os(iOS)</span><br><span class="line">        &#x2F;&#x2F; Wakeup any threads waiting in lock(before:)</span><br><span class="line">        pthread_mutex_lock(timeoutMutex)</span><br><span class="line">        pthread_cond_broadcast(timeoutCond)</span><br><span class="line">        pthread_mutex_unlock(timeoutMutex)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    &#x2F;&#x2F; tryLock</span><br><span class="line">    open func &#96;try&#96;() -&gt; Bool &#123;</span><br><span class="line">        return pthread_mutex_trylock(mutex) &#x3D;&#x3D; 0</span><br><span class="line">    &#125;</span><br><span class="line">    &#x2F;&#x2F;  lockBeforeDate</span><br><span class="line">    open func lock(before limit: Date) -&gt; Bool &#123;</span><br><span class="line">        if pthread_mutex_trylock(mutex) &#x3D;&#x3D; 0 &#123;</span><br><span class="line">            return true</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">#if os(macOS) || os(iOS) || os(Windows)</span><br><span class="line">        return timedLock(mutex: mutex, endTime: limit, using: timeoutCond, with: timeoutMutex)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    open var name: String?</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-<p>这些方法在iOS中都可以找到，我们通过源码可以看到内部的实现逻辑。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">@interface NSLock : NSObject &lt;NSLocking&gt; &#123;</span><br><span class="line">@private</span><br><span class="line">    void *_priv;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (BOOL)tryLock;</span><br><span class="line">- (BOOL)lockBeforeDate:(NSDate *)limit;</span><br><span class="line"></span><br><span class="line">@property (nullable, copy) NSString *name API_AVAILABLE(macos(10.5), ios(2.0), watchos(2.0), tvos(9.0));</span><br></pre></td></tr></table></figure>
-
-<p>NSLock内部调用的就是<code>pthread</code>的互斥锁。</p>
-<p>首先我们运行一下下面对的代码：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">NSLock *lock &#x3D; [[NSLock alloc] init];</span><br><span class="line">NSRecursiveLock *recursiveLock &#x3D; [[NSRecursiveLock alloc] init];</span><br><span class="line">for (int i &#x3D; 0; i &lt; 100; i ++) &#123;</span><br><span class="line">    dispatch_async(dispatch_get_global_queue(0, 0), ^&#123;</span><br><span class="line">        &#x2F;&#x2F; 1. lock位置 1</span><br><span class="line">        &#x2F;&#x2F;[lock lock];</span><br><span class="line">        &#x2F;&#x2F;[recursiveLock lock];</span><br><span class="line">        &#x2F;&#x2F; 这里定义了一个block</span><br><span class="line">        static void(^testMethod)(int value);</span><br><span class="line">        testMethod &#x3D; ^(int value) &#123;</span><br><span class="line">            &#x2F;&#x2F; 2. lock位置 2</span><br><span class="line">            &#x2F;&#x2F;[lock lock];</span><br><span class="line">            &#x2F;&#x2F;[recursiveLock lock];</span><br><span class="line">            if (value &gt; 0) &#123;</span><br><span class="line">                NSLog(@&quot;i &#x3D; %d, current value &#x3D; %d&quot;, i, value);</span><br><span class="line">                &#x2F;&#x2F; block内部调用block，形成了嵌套-递归</span><br><span class="line">                testMethod(value - 1);</span><br><span class="line">            &#125;</span><br><span class="line">            &#x2F;&#x2F;[lock unlock];</span><br><span class="line">            &#x2F;&#x2F;[recursiveLock unlock];</span><br><span class="line">        &#125;;</span><br><span class="line">        testMethod(10);</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>我虽然把锁都写出来了。但是一开始的情况下，我们不加锁运行一下，看是怎么打印的。</p>
-<p><img src="lock-1.jpg" alt=""></p>
-<p>打印出来的就是一堆无序的数字。</p>
-<p>然后我们使用NSLock，把1处的lock打开，底部unlock也需要打开，再执行一下。</p>
-<p>诶~~ 怎么还发生崩溃了呢？就是因为内部发生了递归调用，这个锁已经玩不了了。<br>那我们该用递归锁试一下，我们使用<code>NSRecursiveLock</code>再运行一下，把1处对应的lock打开。</p>
-<p><img src="lock-2.jpg" alt=""></p>
-<p>这次没问题了哈~ 为啥呢？</p>
-<h1 id="NSRecursiveLock"><a href="#NSRecursiveLock" class="headerlink" title="NSRecursiveLock"></a>NSRecursiveLock</h1><p>我们看一下NSRecursiveLock的源码是啥？</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br></pre></td><td class="code"><pre><span class="line">open class NSRecursiveLock: NSObject, NSLocking &#123;</span><br><span class="line">    internal var mutex &#x3D; _RecursiveMutexPointer.allocate(capacity: 1)</span><br><span class="line">#if os(macOS) || os(iOS) || os(Windows)</span><br><span class="line">    private var timeoutCond &#x3D; _ConditionVariablePointer.allocate(capacity: 1)</span><br><span class="line">    private var timeoutMutex &#x3D; _MutexPointer.allocate(capacity: 1)</span><br><span class="line">#endif</span><br><span class="line"></span><br><span class="line">    public override init() &#123;</span><br><span class="line">        super.init()</span><br><span class="line">        var attrib &#x3D; pthread_mutexattr_t()</span><br><span class="line"></span><br><span class="line">        withUnsafeMutablePointer(to: &amp;attrib) &#123; attrs in</span><br><span class="line">            pthread_mutexattr_init(attrs)</span><br><span class="line">            pthread_mutexattr_settype(attrs, Int32(PTHREAD_MUTEX_RECURSIVE))</span><br><span class="line">            pthread_mutex_init(mutex, attrs)</span><br><span class="line">        &#125;</span><br><span class="line">#if os(macOS) || os(iOS)</span><br><span class="line">        pthread_cond_init(timeoutCond, nil)</span><br><span class="line">        pthread_mutex_init(timeoutMutex, nil)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    deinit &#123;</span><br><span class="line">        pthread_mutex_destroy(mutex)</span><br><span class="line">        </span><br><span class="line">        mutex.deinitialize(count: 1)</span><br><span class="line">        mutex.deallocate()</span><br><span class="line">#if os(macOS) || os(iOS) || os(Windows)</span><br><span class="line">        deallocateTimedLockData(cond: timeoutCond, mutex: timeoutMutex)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    open func lock() &#123;</span><br><span class="line">        pthread_mutex_lock(mutex)</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    open func unlock() &#123;</span><br><span class="line">        pthread_mutex_unlock(mutex)</span><br><span class="line">#if os(macOS) || os(iOS)</span><br><span class="line">        &#x2F;&#x2F; Wakeup any threads waiting in lock(before:)</span><br><span class="line">        pthread_mutex_lock(timeoutMutex)</span><br><span class="line">        pthread_cond_broadcast(timeoutCond)</span><br><span class="line">        pthread_mutex_unlock(timeoutMutex)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    open func &#96;try&#96;() -&gt; Bool &#123;</span><br><span class="line">        return pthread_mutex_trylock(mutex) &#x3D;&#x3D; 0</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    open func lock(before limit: Date) -&gt; Bool &#123;</span><br><span class="line">        if pthread_mutex_trylock(mutex) &#x3D;&#x3D; 0 &#123;</span><br><span class="line">            return true</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">#if os(macOS) || os(iOS) || os(Windows)</span><br><span class="line">        return timedLock(mutex: mutex, endTime: limit, using: timeoutCond, with: timeoutMutex)</span><br><span class="line">#else</span><br><span class="line">        guard var endTime &#x3D; timeSpecFrom(date: limit) else &#123;</span><br><span class="line">            return false</span><br><span class="line">        &#125;</span><br><span class="line">        return pthread_mutex_timedlock(mutex, &amp;endTime) &#x3D;&#x3D; 0</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    open var name: String?</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>嗯哼？？？怎么跟NSLock中的源码没有什么区别？在<code>init()</code>中有略微的不同</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">public override init() &#123;</span><br><span class="line">    super.init()</span><br><span class="line">    var attrib &#x3D; pthread_mutexattr_t()</span><br><span class="line"></span><br><span class="line">    withUnsafeMutablePointer(to: &amp;attrib) &#123; attrs in</span><br><span class="line">        pthread_mutexattr_init(attrs)</span><br><span class="line">        &#x2F;&#x2F; 设置互斥锁的类型 RECURSIVE（递归）</span><br><span class="line">        pthread_mutexattr_settype(attrs, Int32(PTHREAD_MUTEX_RECURSIVE))</span><br><span class="line">        pthread_mutex_init(mutex, attrs)</span><br><span class="line">    &#125;</span><br><span class="line">#if os(macOS) || os(iOS)</span><br><span class="line">    pthread_cond_init(timeoutCond, nil)</span><br><span class="line">    pthread_mutex_init(timeoutMutex, nil)</span><br><span class="line">#endif</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>这下就清晰了，NSRecursiveLock在内部是一个互斥锁设置了递归的类型，只有这一点点的区别，就导致上方的代码运行出现那么大的区别。</p>
-<h3 id="lock的位置"><a href="#lock的位置" class="headerlink" title="lock的位置"></a>lock的位置</h3><p>我们继续看上方的代码，把lock的位置放在2.的位置。分别打开NSLock和NSRecursiveLock看看有什么不同：</p>
-<ol>
-<li><p>打开NSLock</p>
- <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">2021-05-20 00:05:11.816871+0800 LockDemo[10150:520495] i &#x3D; 0, current value &#x3D; 10</span><br></pre></td></tr></table></figure>
-
-<p> 只有一条输出？</p>
-<p> 因为<code>NSLock</code>只是一个互斥锁，执行了<code>lock</code>操作之后，就必须等待<code>unlock</code>才能继续执行，否则就一直等待。</p>
-</li>
-<li><p>打开NSRecursiveLock</p>
-<p> <img src="lock-3.jpg" alt=""></p>
-<p> 竟然发生了crash，但是current value的值是有序的，i的值却是无序的，这是个啥情况？</p>
-<p> 也就是说，递归锁我用了，但是递归执行中，线程与线程直接，递归没有直接的联系，也就是递归锁在多线程中跑偏了~造成了锁内部发生了错乱，导致了crash。</p>
-</li>
-</ol>
-<p>所以啊，别总乱加锁。那么有人可能会说，我直接在调用的时候加锁不就可以了吗，还很省事，不用担心发生crash。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[lock lock];</span><br><span class="line">testMethod(10);</span><br><span class="line">[lock unlock];</span><br></pre></td></tr></table></figure>
-
-<p>肯定不行啊，这样只是控制了，递归调用不会出现问题，但是i的值呢？</p>
-<p><img src="lock-4.jpg" alt=""></p>
-<p>不管你这这里使用NSLock或NSRecursiveLock都是一样的效果。所以，这种情况，我们经常会使用<code>@synchronized (self)</code>，不用管什么时候加锁和什么时候解锁，也不用担心会发生等待、崩溃。而且性能上，并没有差多少。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">testMethod &#x3D; ^(int value) &#123;</span><br><span class="line">    @synchronized (self) &#123;</span><br><span class="line">        if (value &gt; 0) &#123;</span><br><span class="line">            NSLog(@&quot;i &#x3D; %d, current value &#x3D; %d&quot;, i, value);</span><br><span class="line">            testMethod(value - 1);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h1 id="NSCondition-条件变量"><a href="#NSCondition-条件变量" class="headerlink" title="NSCondition 条件变量"></a>NSCondition 条件变量</h1><p><code>NSCondition</code>的对象实际上作为一个锁和一个线程检查器：锁主要为了当检测条件时保护数据源，执行条件引发的任务；线程检查器主要是根据条件决定是否继续运行线程，即线程是否被阻塞。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">@interface NSCondition : NSObject &lt;NSLocking&gt; &#123;</span><br><span class="line">&#x2F;&#x2F; 让当前线程处于等待状态</span><br><span class="line">- (void)wait;</span><br><span class="line">&#x2F;&#x2F; 在时间到达之前让当前线程一直等待</span><br><span class="line">- (BOOL)waitUntilDate:(NSDate *)limit;</span><br><span class="line">&#x2F;** </span><br><span class="line"> * CPU发送信号，唤醒等待条件的一个线程，可以执行。可以多次调用，唤醒多个线程。</span><br><span class="line"> * 没有线程等待，则什么也不处理。只有在被锁的情况下才可以调用</span><br><span class="line"> *&#x2F;</span><br><span class="line">- (void)signal;</span><br><span class="line">&#x2F;**</span><br><span class="line"> * 唤醒等待的所有线程，如果没有等待，则什么也不做。只有在被锁的情况下才可以调用</span><br><span class="line"> *&#x2F; </span><br><span class="line">- (void)broadcast;</span><br><span class="line"></span><br><span class="line">@property (nullable, copy) NSString *name;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 一般用于多线程同时访问、修改同一个数据源，保证在同一 时间内数据源只被访问、修改一次，其他线程的命令需要在lock外等待，只到unlock ，才可访问</span><br><span class="line">- (void)lock;</span><br><span class="line">&#x2F;&#x2F; 与lock同时使用。</span><br><span class="line">- (void)unlock;</span><br></pre></td></tr></table></figure>
-
-<p>接下来我们看代码：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">- (void)conditionTest &#123;</span><br><span class="line">    self.ticketCount &#x3D; 0;</span><br><span class="line">    for (int i &#x3D; 0; i &lt; 100; i++) &#123;</span><br><span class="line">        dispatch_async(dispatch_get_global_queue(0, 0), ^&#123;</span><br><span class="line">            [self addTicket];</span><br><span class="line">        &#125;);</span><br><span class="line">        dispatch_async(dispatch_get_global_queue(0, 0), ^&#123;</span><br><span class="line">            [self saleTicket];</span><br><span class="line">        &#125;);</span><br><span class="line">        dispatch_async(dispatch_get_global_queue(0, 0), ^&#123;</span><br><span class="line">            [self saleTicket];</span><br><span class="line">        &#125;);</span><br><span class="line">        dispatch_async(dispatch_get_global_queue(0, 0), ^&#123;</span><br><span class="line">            [self addTicket];</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (void)addTicket &#123;</span><br><span class="line">    self.ticketCount +&#x3D; 1;</span><br><span class="line">    NSLog(@&quot;有票了 %ld&quot;, self.ticketCount);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (void)saleTicket &#123;</span><br><span class="line">    self.ticketCount -&#x3D; 1;</span><br><span class="line">    NSLog(@&quot;卖了一张 %ld&quot;, self.ticketCount);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>运行一下代码。</p>
-<p><img src="NSCondition-1.jpg" alt=""></p>
-<p>都有可能卖超了。怎么解决这个问题，虽然上面的锁能解决，但是我们使用NSCondition来处理。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">- (void)addTicket &#123;</span><br><span class="line">    &#x2F;&#x2F; 加锁</span><br><span class="line">    [self.condition lock];</span><br><span class="line">    self.ticketCount +&#x3D; 1;</span><br><span class="line">    NSLog(@&quot;有票了 count &#x3D; %ld&quot;, self.ticketCount);</span><br><span class="line">    &#x2F;&#x2F; 通知，有票了，等待的线程可以执行了</span><br><span class="line">    [self.condition signal];</span><br><span class="line">    &#x2F;&#x2F; 解锁</span><br><span class="line">    [self.condition unlock];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (void)saleTicket &#123;</span><br><span class="line">    &#x2F;&#x2F; 加锁</span><br><span class="line">    [self.condition lock];</span><br><span class="line">    if (self.ticketCount &#x3D;&#x3D; 0) &#123;</span><br><span class="line">        NSLog(@&quot;wait...没有票了 count &#x3D; 0&quot;);</span><br><span class="line">        &#x2F;&#x2F; 没有票，就等待，不执行，等到有票了再执行</span><br><span class="line">        [self.condition wait];</span><br><span class="line">    &#125;</span><br><span class="line">    &#x2F;&#x2F; 有票了，就执行了</span><br><span class="line">    self.ticketCount -&#x3D; 1;</span><br><span class="line">    NSLog(@&quot;卖了一张 count &#x3D; %ld&quot;, self.ticketCount);</span><br><span class="line">    [self.condition unlock];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>运行一下，看看结果</p>
-<p><img src="NSCondition-2.jpg" alt=""></p>
-<p>很是完美，<code>NSCondition</code>条件变量是很少使用的，因为用起来比较麻烦。其主要的点就是在什么时候执行<code>wait</code>、什么时候发送<code>signal</code>。</p>
-<p>看了代码的运用，我们看看内部是怎么实现的。</p>
-<h2 id="NSCondition-内部实现"><a href="#NSCondition-内部实现" class="headerlink" title="NSCondition 内部实现"></a>NSCondition 内部实现</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br></pre></td><td class="code"><pre><span class="line">open class NSCondition: NSObject, NSLocking &#123;</span><br><span class="line">    internal var mutex &#x3D; _MutexPointer.allocate(capacity: 1)</span><br><span class="line">    &#x2F;&#x2F; 条件</span><br><span class="line">    internal var cond &#x3D; _ConditionVariablePointer.allocate(capacity: 1)</span><br><span class="line"></span><br><span class="line">    public override init() &#123;</span><br><span class="line">#if os(Windows)</span><br><span class="line">        InitializeSRWLock(mutex)</span><br><span class="line">        InitializeConditionVariable(cond)</span><br><span class="line">#else</span><br><span class="line">        &#x2F;&#x2F; 内部封装了pthread 的互斥锁</span><br><span class="line">        pthread_mutex_init(mutex, nil)</span><br><span class="line">        pthread_cond_init(cond, nil)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    deinit &#123;</span><br><span class="line">#if os(Windows)</span><br><span class="line">        &#x2F;&#x2F; SRWLock do not need to be explicitly destroyed</span><br><span class="line">#else</span><br><span class="line">        pthread_mutex_destroy(mutex)</span><br><span class="line">        pthread_cond_destroy(cond)</span><br><span class="line">#endif</span><br><span class="line">        mutex.deinitialize(count: 1)</span><br><span class="line">        cond.deinitialize(count: 1)</span><br><span class="line">        mutex.deallocate()</span><br><span class="line">        cond.deallocate()</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    open func lock() &#123;</span><br><span class="line">#if os(Windows)</span><br><span class="line">        AcquireSRWLockExclusive(mutex)</span><br><span class="line">#else</span><br><span class="line">        pthread_mutex_lock(mutex)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    open func unlock() &#123;</span><br><span class="line">#if os(Windows)</span><br><span class="line">        ReleaseSRWLockExclusive(mutex)</span><br><span class="line">#else</span><br><span class="line">        pthread_mutex_unlock(mutex)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    &#x2F;&#x2F; 等待</span><br><span class="line">    open func wait() &#123;</span><br><span class="line">#if os(Windows)</span><br><span class="line">        SleepConditionVariableSRW(cond, mutex, WinSDK.INFINITE, 0)</span><br><span class="line">#else</span><br><span class="line">        pthread_cond_wait(cond, mutex)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    open func wait(until limit: Date) -&gt; Bool &#123;</span><br><span class="line">#if os(Windows)</span><br><span class="line">        return SleepConditionVariableSRW(cond, mutex, timeoutFrom(date: limit), 0)</span><br><span class="line">#else</span><br><span class="line">        guard var timeout &#x3D; timeSpecFrom(date: limit) else &#123;</span><br><span class="line">            return false</span><br><span class="line">        &#125;</span><br><span class="line">        return pthread_cond_timedwait(cond, mutex, &amp;timeout) &#x3D;&#x3D; 0</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    &#x2F;&#x2F; 发送信号</span><br><span class="line">    open func signal() &#123;</span><br><span class="line">#if os(Windows)</span><br><span class="line">        WakeConditionVariable(cond)</span><br><span class="line">#else</span><br><span class="line">        pthread_cond_signal(cond)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    &#x2F;&#x2F; 唤醒所有条件</span><br><span class="line">    open func broadcast() &#123;</span><br><span class="line">#if os(Windows)</span><br><span class="line">        WakeAllConditionVariable(cond)</span><br><span class="line">#else</span><br><span class="line">        &#x2F;&#x2F; 根据window的释义，唤醒所有条件锁</span><br><span class="line">        pthread_cond_broadcast(cond)</span><br><span class="line">#endif</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    open var name: String?</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>NSCondition内部封装的是一个pthread的互斥锁。</p>
-<h1 id="NSConditionLock-条件锁"><a href="#NSConditionLock-条件锁" class="headerlink" title="NSConditionLock 条件锁"></a>NSConditionLock 条件锁</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 初始化当前的条件</span><br><span class="line">- (instancetype)initWithCondition:(NSInteger)condition;</span><br><span class="line">&#x2F;&#x2F; 只读，当前的条件</span><br><span class="line">@property (readonly) NSInteger condition;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 当前线程加锁，如果当前条件与参数一致，则执行，否则等待，直到有对应的条件被解锁。</span><br><span class="line">- (void)lockWhenCondition:(NSInteger)condition;</span><br><span class="line">&#x2F;&#x2F; 解锁，然后把条件传尽来，如果有等待的线程，并且条件与condition相同则执行，没有不处理。</span><br><span class="line">- (void)unlockWithCondition:(NSInteger)condition;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 加锁，没有条件，可以的话直接执行</span><br><span class="line">- (void)lock;</span><br><span class="line">&#x2F;&#x2F; 解锁</span><br><span class="line">- (void)unlock;</span><br></pre></td></tr></table></figure>
-
-<p>接下来，看一下代码：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">- (void)conditonLockTest &#123;</span><br><span class="line">    NSConditionLock *conditionLock &#x3D; [[NSConditionLock alloc] initWithCondition:2];</span><br><span class="line">    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^&#123;</span><br><span class="line">&#x2F;&#x2F;        [conditionLock lockWhenCondition:1];</span><br><span class="line">        NSLog(@&quot;1&quot;);</span><br><span class="line">&#x2F;&#x2F;         [conditionLock unlockWithCondition:0];</span><br><span class="line">    &#125;);</span><br><span class="line">    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^&#123;</span><br><span class="line">&#x2F;&#x2F;        [conditionLock lockWhenCondition:2];</span><br><span class="line">        NSLog(@&quot;2&quot;);</span><br><span class="line">&#x2F;&#x2F;        [conditionLock unlockWithCondition:1];</span><br><span class="line">    &#125;);</span><br><span class="line">    </span><br><span class="line">    dispatch_async(dispatch_get_global_queue(0, 0), ^&#123;</span><br><span class="line">&#x2F;&#x2F;       [conditionLock lock];</span><br><span class="line">       NSLog(@&quot;3&quot;);</span><br><span class="line">&#x2F;&#x2F;       [conditionLock unlock];</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>我们先不使用<code>NSConditionLock</code>，跑一下代码看看，输出情况：</p>
-<p>根据之前GCD全局队列的内容，该输出可能很随意，每次输出都可能不一样。那接下来把注释的代码打开，在有锁的情况下，再跑一次。</p>
-<p>这次的输出结果为：3-2-1，也有可能是2-3-1。<br>因为初始的<code>NSConditionLock</code>的条件是2，而且是全局并发队列，所以2和3都有可能先执行，但是1肯定是最后执行。因为在2执行完毕之后，才解锁，并把条件该成了1。这个时候才通知条件为1的锁执行。</p>
-<p>条件锁有点类似信号量。</p>
-<h2 id="NSConditionLock-源码："><a href="#NSConditionLock-源码：" class="headerlink" title="NSConditionLock 源码："></a>NSConditionLock 源码：</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br></pre></td><td class="code"><pre><span class="line">open class NSConditionLock : NSObject, NSLocking &#123;</span><br><span class="line">    &#x2F;&#x2F; 内部封装了一个NSCondition</span><br><span class="line">    internal var _cond &#x3D; NSCondition()</span><br><span class="line">    &#x2F;&#x2F; int类型的数据，当做锁的条件</span><br><span class="line">    internal var _value: Int</span><br><span class="line">    internal var _thread: _swift_CFThreadRef?</span><br><span class="line">    </span><br><span class="line">    &#x2F;&#x2F; 默认init操作，condition &#x3D;&#x3D; 0</span><br><span class="line">    public convenience override init() &#123;</span><br><span class="line">        self.init(condition: 0)</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    public init(condition: Int) &#123;</span><br><span class="line">        _value &#x3D; condition</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    &#x2F;&#x2F; 加锁</span><br><span class="line">    open func lock() &#123;</span><br><span class="line">        let _ &#x3D; lock(before: Date.distantFuture)</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    &#x2F;&#x2F; 解锁，直接_thread&#x3D;nil，并且唤醒其他线程</span><br><span class="line">    open func unlock() &#123;</span><br><span class="line">        _cond.lock()</span><br><span class="line">#if os(Windows)</span><br><span class="line">        _thread &#x3D; INVALID_HANDLE_VALUE</span><br><span class="line">#else</span><br><span class="line">        _thread &#x3D; nil</span><br><span class="line">#endif</span><br><span class="line">        _cond.broadcast()</span><br><span class="line">        _cond.unlock()</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    &#x2F;&#x2F; 可读的condition</span><br><span class="line">    open var condition: Int &#123;</span><br><span class="line">        return _value</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    &#x2F;&#x2F; 加锁，并且当条件满足时执行，</span><br><span class="line">    open func lock(whenCondition condition: Int) &#123;</span><br><span class="line">        &#x2F;&#x2F; 这里详细说明</span><br><span class="line">        let _ &#x3D; lock(whenCondition: condition, before: Date.distantFuture)</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    open func &#96;try&#96;() -&gt; Bool &#123;</span><br><span class="line">        return lock(before: Date.distantPast)</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    open func tryLock(whenCondition condition: Int) -&gt; Bool &#123;</span><br><span class="line">        return lock(whenCondition: condition, before: Date.distantPast)</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    &#x2F;&#x2F; 解锁，并且设置条件</span><br><span class="line">    open func unlock(withCondition condition: Int) &#123;</span><br><span class="line">        _cond.lock()</span><br><span class="line">#if os(Windows)</span><br><span class="line">        _thread &#x3D; INVALID_HANDLE_VALUE</span><br><span class="line">#else</span><br><span class="line">        _thread &#x3D; nil</span><br><span class="line">#endif</span><br><span class="line">        &#x2F;&#x2F; 设置条件锁的条件，并且执行等待的条件锁</span><br><span class="line">        _value &#x3D; condition</span><br><span class="line">        _cond.broadcast()</span><br><span class="line">        _cond.unlock()</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    open func lock(before limit: Date) -&gt; Bool &#123;</span><br><span class="line">        _cond.lock()</span><br><span class="line">        while _thread !&#x3D; nil &#123;</span><br><span class="line">            if !_cond.wait(until: limit) &#123;</span><br><span class="line">                _cond.unlock()</span><br><span class="line">                return false</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">#if os(Windows)</span><br><span class="line">        _thread &#x3D; GetCurrentThread()</span><br><span class="line">#else</span><br><span class="line">        _thread &#x3D; pthread_self()</span><br><span class="line">#endif</span><br><span class="line">        _cond.unlock()</span><br><span class="line">        return true</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    &#x2F;&#x2F; </span><br><span class="line">    open func lock(whenCondition condition: Int, before limit: Date) -&gt; Bool &#123;</span><br><span class="line">        &#x2F;&#x2F; NSCondition 加锁</span><br><span class="line">        _cond.lock()</span><br><span class="line">        &#x2F;&#x2F; 这里是一个while循环，当条件不满足时，就一直循环下去，除非不是等待状态。</span><br><span class="line">        while _thread !&#x3D; nil || _value !&#x3D; condition &#123;</span><br><span class="line">            if !_cond.wait(until: limit) &#123;</span><br><span class="line">                _cond.unlock()</span><br><span class="line">                return false</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        &#x2F;&#x2F; 当条件满足，直接跳出while循环，向下执行。</span><br><span class="line">#if os(Windows)</span><br><span class="line">        _thread &#x3D; GetCurrentThread()</span><br><span class="line">#else</span><br><span class="line">        _thread &#x3D; pthread_self()</span><br><span class="line">#endif</span><br><span class="line">        _cond.unlock()</span><br><span class="line">        return true</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    open var name: String?</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>NSConditionLock内部封装了NSCondtion，使用起来比<code>NSCondtion</code>更加方便。这个也是一个互斥锁。</p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p><img src="lock-cmp.jpg" alt=""></p>
-<ul>
-<li>@synchronized(obj)<ul>
-<li>objc_sync_enter加锁、objc_sync_exit解锁</li>
-<li>查找obj的流程：当前链表查找 - 线程池中查找 - hash表中查找</li>
-<li>不要乱用obj</li>
-</ul>
-</li>
-<li>NSLock - pthread的互斥锁<ul>
-<li>在递归调用中会发生等待</li>
-</ul>
-</li>
-<li>NSRecursiveLock - 递归锁，封装的也是互斥锁，内部原理与NSLock一致，只是设置了递归的类型。<ul>
-<li>注意递归锁，在多线程中会发生crash</li>
-</ul>
-</li>
-<li>NSCondtion - 互斥锁<ul>
-<li>注意wait和signal调用时机</li>
-</ul>
-</li>
-<li>NSConditionLock - 互斥锁<ul>
-<li>内部封装了NSCondtion</li>
-</ul>
-</li>
-</ul>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
   </div>
 
   
@@ -2178,7 +2401,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">35</span>
+          <span class="site-state-item-count">36</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
