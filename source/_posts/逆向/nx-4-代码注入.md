@@ -144,4 +144,117 @@ $ ./yololib WeChat Frameworks/ALHook.framework/ALHook
 这里也直接使用dylib中使用脚本的方式进行注入。
 
 
+## Debug View Hierarchy调试
+
+![](hook_register.jpg)
+
+我们看一下图片上的内容，通过`Debug View Hierarchy`的方式，先获取到我们想要的东西。
+
+这里可以看到注册按钮的相关信息：
+
+1. 是一个`FixTitleColorButton`的类，应该是封装的Button
+2. 指定的target是`WCAccountLoginControlLogic`。
+3. 相应的action是`onFirstViewRegister`。
+
+能拿到这些信息，就可以直接通过runtime的方法替换就可以直接修改了。
+
+```
++ (void)load {
+    Method oldRegister = class_getInstanceMethod(objc_getClass("WCAccountLoginControlLogic"), @selector(onFirstViewRegister));
+    
+    Method newRegister = class_getInstanceMethod([self class], @selector(new_register));
+    method_exchangeImplementations(oldRegister, newRegister);
+    
+}
+
+- (void)new_register {
+    NSLog(@"new register...");
+}
+```
+
+这就把原来的注册方法给替换掉了，点击注册会输出者一串字符。
+
+接下来我们要在点击登录时，拿到用户密码，并且不影响正常的登录流程。
+
+## class-dump工具
+
+如果我们通过使用上面的方式，可以轻松的拿到用户名和密码，但是这是通过响应链一层层的去找的，所以也就有了这么个工具，可以直接输出OC中的类、方法、属性等内容。
+
+把`WeChat`的可执行文件拷贝出来，和`class-dump`工具放在相同目录中(也可以是其他目录)，然后执行下述命令，可以输出所有的header文件。
+
+```
+$ ./class-dump -H WeChat -o ./headers/
+```
+
+然后我们通过`Debug View Hierarchy`找到对应的账号密码登录页面，查看页面的class和文本框的class，进一步在输出的头文件中找。
+
+![](hook_class_dump.jpg)
+
+我们用同样的方式继续找`WCAccountTextFieldItem`。发现在`WCBaseTextFieldItem`有一个`WCUITextField`，继承自`UITextField`也就是我们要找的文本框。
+
+在通过`Debug View Hierarchy`找到登录的点击事件。为`onNext`。能拿到这些信息，就可以操作了。
+
+```
++(void)load {
+    //原始的Method
+    Method onNext = class_getInstanceMethod(objc_getClass("WCAccountMainLoginViewController"), @selector(onNext));
+    
+    //添加新方法!
+    class_addMethod(objc_getClass("WCAccountMainLoginViewController"), @selector(new_onNext), new_onNext, "v@:");
+    //交换
+    method_exchangeImplementations(onNext, class_getInstanceMethod(objc_getClass("WCAccountMainLoginViewController"), @selector(new_onNext)));
+}
+
+//新的IMP
+void new_onNext(id self,SEL _cmd){
+    UITextField * pwd = (UITextField *)[[self valueForKey:@"_textFieldUserPwdItem"] valueForKey:@"m_textField"];
+
+    NSLog(@"密码是:%@",pwd.text);
+    //调用回原来的逻辑!!
+    //调用原来的方法!
+    [self performSelector:@selector(new_onNext)];
+}
+```
+
+注意，这里是在原来的`WCAccountMainLoginViewController`类中添加方法，而不是用注册时的那种方法，是因为会造成crash，因为使用的是`exchange`方法交换，在`WCAccountMainLoginViewController`类执行`new_onNext`方法时找不到对应的方法。
+
+这种是使用`class_addMethod`在`WCAccountMainLoginViewController`中添加了一个方法。接下来我们使用setImp和getImp的方式。
+
+```
++(void)load{
+    //原始的Method
+    old_onNext = method_getImplementation(class_getInstanceMethod(objc_getClass("WCAccountMainLoginViewController"), @selector(onNext)));
+    method_setImplementation(class_getInstanceMethod(objc_getClass("WCAccountMainLoginViewController"), @selector(onNext)), new_onNext);
+   
+}
+// 定义原来的IMP
+IMP (*old_onNext)(id self,SEL _cmd);
+
+// 定义新的IMP
+void new_onNext(id self,SEL _cmd){
+    UITextField * pwd = (UITextField *)[[self valueForKey:@"_textFieldUserPwdItem"] valueForKey:@"m_textField"];
+
+    NSLog(@"密码是:%@",pwd.text);
+    //调用回原来的逻辑!!
+    //调用原来的方法!
+    old_onNext(self,_cmd);
+}
+```
+                   
+这种方式相对比较清晰，然后重新运行就好了。
+                   
+# 总结
+
+通过Framework、Dylib注入
+
+* Xcode自动打包Framework进入app包
+* macho中load commands里需要有 LC_LOAD_DYLIB字段
+* DYLD加载我们创建的Framework
+* MethodSwizzle - Runtime中也是重点
+    * exchange函数交换SEL和IMP的对应关系
+        * 这种方案有可能会造成crash。因为没法调用原来的方法。
+    * 解决方案：
+        * 添加方法列表，然后exchange或者replace
+        * getImp、setImp配合使用
+
 
