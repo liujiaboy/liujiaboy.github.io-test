@@ -332,10 +332,13 @@ __DATA, __objc_const | 这里的const与`__TEXT->const`完全不同。<br>`__obj
     * 查看二进制文件 $ lipo -info [MachO文件]
     * 拆分为某一种架构：$ lipo [MachO文件] –thin [架构] –output [输出文件路径]
     * 合并多种架构：$ lipo -create [MachO文件1] [MachO文件2] -output [生成的MachO文件]
-* MachOView的使用
+* MachO就结构
     * Header
+        * 用于快速群定该文件的CPU类型、文件类型
     * Load Commands
+        * 指示加载器如何设置并且加载二进制数据
     * Section64
+        * 存放数据：代码、数据、字符串常量、类、方法等
 
 # 引用
 
