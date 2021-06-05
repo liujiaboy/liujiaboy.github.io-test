@@ -1,5 +1,5 @@
 ---
-title: 1.alloc、init、new
+title: OC-1-alloc、init、new
 date: 2021-04-17 09:20:25
 tags:
     - Objective-C,
@@ -36,6 +36,8 @@ NSLog(@"%@ - %p - %p",p3,p3,&p3);
 
 ![](oc-address.png)
 
+我们可以通过汇编模式或者符号断点查看源码所在的位置。这里不细说了，比较简单。最后定位的源码位置在`libobjc.A.dylib->objc_init`。
+
 # 2. alloc的执行过程
 
 那我们接下来要看alloc是怎么执行的。需要看objc的源码。[objc4源码](https://opensource.apple.com/tarballs/objc4/)是可以直接下载的。我们这里用的是最新的818.2版本的。
@@ -65,18 +67,22 @@ id _objc_rootAlloc(Class cls)
 ## 2.2 callAlloc
 
 这里是核心代码。
+
 ```
 static ALWAYS_INLINE id
 callAlloc(Class cls, bool checkNil, bool allocWithZone=false)
 {
-#if __OBJC2__
+#if __OBJC2__ // 是个宏定义
+    // slowpath表示括号内的条件可能性教小
     if (slowpath(checkNil && !cls)) return nil;
+    // fastpath表示括号内的条件可能性教大
+    // 如果有自定义的allocWithZone（hasCustomAWZ）
     if (fastpath(!cls->ISA()->hasCustomAWZ())) {
         return _objc_rootAllocWithZone(cls, nil);   // 1.
     }
 #endif
 
-    // No shortcuts available.
+    // No shortcuts available. 根据传进来的参数判断
     if (allocWithZone) {                            // 2. 
         return ((id(*)(id, SEL, struct _NSZone *))objc_msgSend)(cls, @selector(allocWithZone:), nil);
     }
@@ -85,8 +91,8 @@ callAlloc(Class cls, bool checkNil, bool allocWithZone=false)
 ```
 
 1. 该处内容是现阶段alloc执行的代码
-2. 该处已经不执行了，allocWithZone已经在iOS8以后使用的范围教小。
-3. 通过消息发送，执行alloc
+2. 根据`callAlloc`调用传进来的参数判断，基本都会执行【1】。
+3. 通过消息发送，执行`alloc`，这里有个很有意思的点，源码跑起来就能知道。
 
 ## 2.3 _objc_rootAllocWithZone
 
@@ -103,6 +109,7 @@ _objc_rootAllocWithZone(Class cls, malloc_zone_t *zone __unused)
 ## 2.4 _class_createInstanceFromZone
 
 这里是重中之重。alloc的流程都在这里完美的展示出来。
+
 ```
 static ALWAYS_INLINE id
 _class_createInstanceFromZone(Class cls, size_t extraBytes, void *zone,
@@ -118,7 +125,8 @@ _class_createInstanceFromZone(Class cls, size_t extraBytes, void *zone,
     bool fast = cls->canAllocNonpointer();
     size_t size;
 
-    // 1. 既然要生成一个对象，首先要做的就是开辟空间，但是要开辟多少？就是这里说了算。
+    // 1. 既然要生成一个对象，首先要做的就是开辟空间，但是要开辟多少？
+    // 由对象的ivars决定。在iOS中，字节是8自己对齐，而内存是16字节对齐，所以小于16字节会补齐
     size = cls->instanceSize(extraBytes);
     if (outAllocatedSize) *outAllocatedSize = size;
 
@@ -129,6 +137,7 @@ _class_createInstanceFromZone(Class cls, size_t extraBytes, void *zone,
         // 2. 算出来需要多少空间，这里进行开辟
         obj = (id)calloc(1, size);
     }
+    // 极少数情况下，obj会创建失败
     if (slowpath(!obj)) {
         if (construct_flags & OBJECT_CONSTRUCT_CALL_BADALLOC) {
             return _objc_callBadAllocHandler(cls);
@@ -158,10 +167,11 @@ _class_createInstanceFromZone(Class cls, size_t extraBytes, void *zone,
 
 ```
 inline size_t instanceSize(size_t extraBytes) const {
+    // 有缓存的情况下
     if (fastpath(cache.hasFastInstanceSize(extraBytes))) {
         return cache.fastInstanceSize(extraBytes);
     }
-
+    // 新开辟
     size_t size = alignedInstanceSize() + extraBytes;
     // CF requires all objects be at least 16 bytes.
     if (size < 16) size = 16;
@@ -169,6 +179,57 @@ inline size_t instanceSize(size_t extraBytes) const {
 }
 ```
 
+
+如果有缓存的情况下，则会执行fastInstanceSize。
+
+```
+size_t fastInstanceSize(size_t extra) const
+{
+    ASSERT(hasFastInstanceSize(extra));
+
+    if (__builtin_constant_p(extra) && extra == 0) {
+        return _flags & FAST_CACHE_ALLOC_MASK16;
+    } else {
+        size_t size = _flags & FAST_CACHE_ALLOC_MASK;
+        // remove the FAST_CACHE_ALLOC_DELTA16 that was added
+        // by setFastInstanceSize
+        // 内存对齐是16字节
+        return align16(size + extra - FAST_CACHE_ALLOC_DELTA16);
+    }
+}
+```
+
+```
+// 新开辟空间时计算对象所在空间
+// Class's ivar size rounded up to a pointer-size boundary.
+uint32_t alignedInstanceSize() const {
+    return word_align(unalignedInstanceSize());
+}
+// 8字节对齐
+static inline size_t word_align(size_t x) {
+    // 通过算法得到8字节的倍数
+    return (x + WORD_MASK) & ~WORD_MASK;
+}
+// 16字节对齐 fastInstanceSize
+static inline size_t align16(size_t x) {
+    // 通过算法得到16字节的倍数
+    return (x + size_t(15)) & ~size_t(15);
+}
+```
+
+这里举例说明一下算法：
+
+```
+// WORD_MASK = 7
+(x + 7) & ~7;
+// x = 2, x + 7 = 9   -> 0000 1001  ⬇️   x=10 17 = 0001 0001
+// 7 = 0000 0111 -> !7 = 1111 1000  ⬇️        !7 = 1111 1000
+//              9 & !7 = 0000 1000 = 8  (17 & !7 = 0001 0000 = 16)
+```
+
+所以：`word_align`计算出来的都是8的倍数。
+     `align16`计算出来的都是16的倍数。
+     
 这里需要注意的是在ARM64下，内存开辟都是16个字节进行对齐的。所以计算的大小的都是16的倍数。
 
 ### 2.4.2 calloc
@@ -201,7 +262,7 @@ _objc_rootInit(id obj)
 }
 ```
 
-init其实是工厂方法，从上面的代码可以看到，只是`return self`。这里有一个重要的点，就是大部分的实现都会交给子类去重新，自定义init方法。
+init其实是工厂方法，从上面的代码可以看到，只是`return self`。这里有一个重要的点，就是大部分的实现都会交给子类去重新自定义init方法。
 
 # 4. new
 
@@ -217,7 +278,7 @@ init其实是工厂方法，从上面的代码可以看到，只是`return self`
 
 # 5. 扩展知识
 我们已经知道了，本身写一个Person类，需要开辟16个字节的空间，那需要申请多大内存空间是由什么因素决定的？
-我们可以试一下分别添加一个属性，两个属性，试一下。自己动手试一下哈，看看2.4.1小结处返回的size是多少。这里不细说了哦~
+我们可以试一下分别添加一个属性，两个属性，试一下。自己动手试一下哈，看看2.4.1小结处返回的size是多少。其申请内存的大小其实是成员变量说了算。
 
 我这里添加了两个NSString属性，分别赋值A和B。
 
@@ -239,12 +300,14 @@ A
 B
 ```
 
-通过`x p`命令我们可以打印出`p`的内存地址。从`0x600002f86cc0 --- 0x600002f86cd0`公占用0x20个自己的空间，也就是32个字节。
+通过`x p`命令我们可以打印出`p`的内存地址。在源码的运行过程中，断点到size计算那里，打印出来size的大小是`32`个字节。也就是会空8个字节。
+
+如果声明了4个bool值，则4个bool值则会依次放在内存中，例如：0x0000000001010101，这个就涉及到字节的对齐以及iOS系统对属性的重排（内存优化）。
 
 
 # 6. 真正的alloc流程
 
-当我们执行`[Person alloc]`的时候，系统内部会通过llvm的函数方法把alloc 指向到`objc_alloc`。
+当我们执行`[Person alloc]`的时候，直接吧断点放在`callAlloc->objc_msgSend`，则会先执行消息转发。原因是系统内部会通过llvm的函数方法把`alloc`指向到`objc_alloc`。
 
 ```
 // Calls [cls alloc].
