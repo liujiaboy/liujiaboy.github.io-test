@@ -343,7 +343,7 @@ callAlloc(Class cls, bool checkNil, bool allocWithZone=false)
 
 如图，是完整的alloc会执行两次的流程图：
 
-![](oc-alloc-2.png)
+![](oc-alloc-2.jpg)
 
 
 # 总结：
