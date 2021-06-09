@@ -9,7 +9,7 @@ categories:
     - OC原理
 ---
 
-# 1. calloc
+# calloc
 
 在上一节中，我们知道开辟空间会用到`calloc`这个函数，那我们就追一下这个函数的内部逻辑。
 
@@ -27,7 +27,7 @@ void *p = calloc(1, 40);
 NSLog(@"%lu",malloc_size(p));
 ```
 
-直接运行，查看`calloc`的内部实现。
+直接运行，查看`malloc.c -> calloc`的内部实现。
 
 
 ```
@@ -36,9 +36,13 @@ calloc(size_t num_items, size_t size)
 {
 	return _malloc_zone_calloc(default_zone, num_items, size, MZ_POSIX);
 }
+```
 
-// calloc -> _malloc_zone_calloc
+可以看到`calloc`只是调用了`_malloc_zone_calloc`方法，其它啥也没做，这里需要注意的是，`default_zone`参数，它是一个虚拟的默认zone，通过它可以做一些事情，如下：
 
+## _malloc_zone_calloc
+
+```
 static void *
 _malloc_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size,
 		malloc_zone_options_t mzo)
@@ -84,8 +88,8 @@ _malloc_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size,
 运行到这里，发现`zone->calloc`进去是一个函数的声明，有没有下文了。这是，我们用lldb调试，打印一下数据：
 
 ```
-(lldb) po zone->calloc
-(.dylib`default_zone_calloc at malloc.c:385)
+(lldb) p zone->calloc
+(void *(*)(_malloc_zone_t *, size_t, size_t)) $0 = 0x00000001002f4b93 (.dylib`default_zone_calloc at malloc.c:385)
 ```
 
 感觉发现了新大陆：`default_zone_calloc`在`malloc.c`文件的第385行。
@@ -100,15 +104,91 @@ default_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size)
 }
 ```
 
-到这里，又走不动了，又是一个`zone->calloc`。我们用同样的方式打印一下看看：
+到这里，又有一个`zone`。这个才是创建的runtime时的default zone。
+
+```
+MALLOC_NOEXPORT malloc_zone_t* lite_zone = NULL;
+
+MALLOC_ALWAYS_INLINE
+static inline malloc_zone_t *
+runtime_default_zone() {
+  // lite_zone = null，所以会执行创建
+	return (lite_zone) ? lite_zone : inline_malloc_default_zone();
+}
+
+⬇️
+
+static inline malloc_zone_t *
+inline_malloc_default_zone(void)
+{
+    // 只创建一次，内部是一个os_once
+    _malloc_initialize_once();
+    // malloc_report(ASL_LEVEL_INFO, "In inline_malloc_default_zone with %d %d\n", malloc_num_zones, malloc_has_debug_zone);
+    // 可以看到malloc_zones是一个(malloc_zone_t **)类型的数据
+    // malloc_zone_t **malloc_zones = (malloc_zone_t **)0xdeaddeaddeaddead;
+    return malloc_zones[0];
+}
+```
+
+这里看一下`malloc_zones`的内容：
+
+![](malloc_zones.png)
+
+## _malloc_zone_t
+
+上面的大部分内容都是围绕着`_malloc_zone_t`展开的。
+
+这里可以看到`malloc_zones[0]`的元素就是一个`malloc_zone_t *`类型的数据，根据lldb打印出来的数据和查看到的内容可以看到`malloc_zone_t`中存放的就是一些我们在开辟空间时需要调用的方法。
+
+看一下`_malloc_zone_t`结构体
+
+
+```
+#define MALLOC_ZONE_FN_PTR(fn) fn
+
+typedef struct _malloc_zone_t {
+    /* Only zone implementors should depend on the layout of this structure;
+    Regular callers should use the access functions below */
+    void	*reserved1;	/* RESERVED FOR CFAllocator DO NOT USE */
+    void	*reserved2;	/* RESERVED FOR CFAllocator DO NOT USE */
+    size_t 	(* MALLOC_ZONE_FN_PTR(size))(struct _malloc_zone_t *zone, const void *ptr); 
+    void 	*(* MALLOC_ZONE_FN_PTR(malloc))(struct _malloc_zone_t *zone, size_t size);
+    void 	*(* MALLOC_ZONE_FN_PTR(calloc))(struct _malloc_zone_t *zone, size_t num_items, size_t size); 
+    void 	*(* MALLOC_ZONE_FN_PTR(valloc))(struct _malloc_zone_t *zone, size_t size); /* same as malloc, but block returned is set to zero and is guaranteed to be page aligned */
+    void 	(* MALLOC_ZONE_FN_PTR(free))(struct _malloc_zone_t *zone, void *ptr);
+    void 	*(* MALLOC_ZONE_FN_PTR(realloc))(struct _malloc_zone_t *zone, void *ptr, size_t size);
+    void 	(* MALLOC_ZONE_FN_PTR(destroy))(struct _malloc_zone_t *zone);
+    const char	*zone_name;
+    
+    ...
+    
+    boolean_t (* MALLOC_ZONE_FN_PTR(claimed_address))(struct _malloc_zone_t *zone, void *ptr);
+} malloc_zone_t;
+```
+
+结构体中的数据与我们图片上的内容是一样的，定义了很多的方法。以`calloc`为例。
+
+```
+void 	*(* MALLOC_ZONE_FN_PTR(calloc))(struct _malloc_zone_t *zone, size_t num_items, size_t size);
+
+转换之后的方法为：
+
+calloc(_malloc_zone_t *zone, size_tnum_items, size_t size) {
+    // 调用.dylib中的方法，nano_malloc.c : 878
+    nano_calloc(zone, num_items, size);
+}
+```
+
+我们也可以用同样的方式打印一下看看：
 
 ```
 (lldb) po zone->calloc
 (.dylib`nano_calloc at nano_malloc.c:878)
 ```
 
-打印出来的信息已经很全面了，告诉我们了`nano_calloc`方法在`nano_malloc.c`文件的第878行。
+打印出来的信息已经很全面了，同样告诉我们了`nano_calloc`方法在`nano_malloc.c`文件中。
 
+## nano_calloc
 ```
 static void *
 nano_calloc(nanozone_t *nanozone, size_t num_items, size_t size)
@@ -134,6 +214,8 @@ nano_calloc(nanozone_t *nanozone, size_t num_items, size_t size)
 	return zone->calloc(zone, 1, total_bytes);
 }
 ```
+
+在`nano_calloc`中，我们同样的先看返回值，最底部的是又继续调用了`zone->calloc`，感觉不太对，上面就找到了还有一个返回`p`的位置。运行也确实会走到这里。
 
 接下来就是重点了哈~
 
@@ -170,6 +252,8 @@ _nano_malloc_check_clear(nanozone_t *nanozone, size_t size, boolean_t cleared_re
 
 接下来看一下开辟空间的算法：segregated_size_to_fit
 
+## segregated_size_to_fit
+
 ```
 static MALLOC_INLINE size_t
 segregated_size_to_fit(nanozone_t *nanozone, size_t size, size_t *pKey)
@@ -203,7 +287,7 @@ segregated_size_to_fit(nanozone_t *nanozone, size_t size, size_t *pKey)
 这就是`calloc`的流程，同时，再一次验证了，iOS在内存中是16字节对齐。
 
 
-# 2. 结构体的内存对齐
+# 结构体的内存对齐
 
 结构体内存对齐3打原则：
 
@@ -277,7 +361,7 @@ NSLog(@"str3 = %lu", sizeof(str3));
 
 按照内存对齐第二条原则，结构体成员从其内部最大成员的size的整数倍开始。c的位置是12，接下来的位置是13，不满足8的整数倍。所以按照原则，前面补齐，从16位开始。所以str3结构体的大小为32。
     
-# 3. 对象的内存对齐
+# 对象的内存对齐
 
 老样子，先看代码哈：
 
@@ -365,7 +449,7 @@ NSLog(@"%@ - %lu - %lu - %lu",person,sizeof(person),class_getInstanceSize([Perso
     * class_getInstanceSize([Person class])：这个类真正需要的空间。属性是8个字节对齐的。
     * malloc_size((__bridge const void *)(person))：内存中需要开辟的空间。内存空间是16个字节对齐的。
 
-# 3.1 float、double
+## float、double
 加如改变其中的一个属性位double类型的，又会是什么情况呢？我这里把上面的height改为了double类型。看一下输出结果
 
 ```
@@ -397,7 +481,7 @@ NSLog(@"%@ - %lu - %lu - %lu",person,sizeof(person),class_getInstanceSize([Perso
     
 这就是内存补齐的内容
 
-# 4. 总结：
+# 总结：
 
 * calloc的流程。
 * 结构体的对齐规则。
