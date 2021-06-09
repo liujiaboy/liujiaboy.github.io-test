@@ -171,6 +171,207 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block home" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/05/08/OC%E5%8E%9F%E7%90%86/KVO%E5%8E%9F%E7%90%86/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="不会飞的小白">
+      <meta itemprop="description" content="一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="不会飞的小白">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          
+            <a href="/2021/05/08/OC%E5%8E%9F%E7%90%86/KVO%E5%8E%9F%E7%90%86/" class="post-title-link" itemprop="url">KVO原理</a>
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-05-08 08:39:59" itemprop="dateCreated datePublished" datetime="2021-05-08T08:39:59+08:00">2021-05-08</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-05-10 19:35:47" itemprop="dateModified" datetime="2021-05-10T19:35:47+08:00">2021-05-10</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/OC%E5%8E%9F%E7%90%86/" itemprop="url" rel="index"><span itemprop="name">OC原理</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h1 id="KVO"><a href="#KVO" class="headerlink" title="KVO"></a>KVO</h1><p>官方文档：<a href="https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/KeyValueObserving/KeyValueObserving.html#//apple_ref/doc/uid/10000177i" target="_blank" rel="noopener">Key-Value Observing</a></p>
+<blockquote>
+<p><b>Important:</b> In order to understand key-value observing, you must first understand key-value coding.</p>
+</blockquote>
+<p>在官方的文档中，有这么一句话，要理解KVO，必须先知道KVC。</p>
+<h1 id="KVO的基本使用"><a href="#KVO的基本使用" class="headerlink" title="KVO的基本使用"></a>KVO的基本使用</h1><p>下面创建一个<code>Person</code>类，并添加几个属性。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">static void *PersonNameContext &#x3D; &amp;PersonNameContext;</span><br><span class="line"></span><br><span class="line">@interface Person : NSObject</span><br><span class="line"></span><br><span class="line">@property (nonatomic, copy) NSString *name;</span><br><span class="line">@property (nonatomic, copy) NSString *nickName;</span><br><span class="line">@property (nonatomic, copy) NSString *fullName;</span><br><span class="line">@property (nonatomic, strong) NSMutableArray *mArray;</span><br><span class="line"></span><br><span class="line">@end</span><br></pre></td></tr></table></figure>
+
+<h2 id="1-简单使用"><a href="#1-简单使用" class="headerlink" title="1. 简单使用"></a>1. 简单使用</h2><p>KVO对实例变量是不起作用的。可以试一下，即使添加了set方法、添加了<code>didChangeValueForKey:</code>方法也不行，即使使用了KVC也监听不到。正常使用来说，还是针对属性。</p>
+<h3 id="1-1-添加监听"><a href="#1-1-添加监听" class="headerlink" title="1.1 添加监听"></a>1.1 添加监听</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">- (void)addObserver:(NSObject *)observer forKeyPath:(NSString *)keyPath options:(NSKeyValueObservingOptions)options context:(nullable void *)context;</span><br></pre></td></tr></table></figure>
+
+<p>被监听者进行调用，添加一个监听对象，监听某一个属性的变化。context是上下文，在官方文档中，推荐使用<code>context</code>，不使用这个，也可以使用<code>NULL</code>代替。例如：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 当前对象监听person对象的name属性的变化</span><br><span class="line">[self.person addObserver:self forKeyPath:@&quot;name&quot; options:(NSKeyValueObservingOptionNew) context:NULL];</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F;[self.person addObserver:self forKeyPath:@&quot;name&quot; options:(NSKeyValueObservingOptionNew) context:PersonNameContext]</span><br></pre></td></tr></table></figure>
+
+<h3 id="1-2-监听变化"><a href="#1-2-监听变化" class="headerlink" title="1.2 监听变化"></a>1.2 监听变化</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary&lt;NSKeyValueChangeKey,id&gt; *)change context:(void *)context &#123;</span><br><span class="line">    &#x2F;&#x2F;if (context &#x3D;&#x3D; PersonNameContext) &#123;&#125;</span><br><span class="line">    NSLog(@&quot;%@&quot;,change);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里可以通过<code>keyPath</code>来判断某一个属性发生变化，如果监听了多个对象，并且有相同的属性，则在这里会添加一堆判断条件，会使代码变得臃肿，所以还是推荐使用context来判断。</p>
+<h3 id="1-3-移除KVO"><a href="#1-3-移除KVO" class="headerlink" title="1.3 移除KVO"></a>1.3 移除KVO</h3><p>添加了监听之后，再<code>dealloc</code>时一定要移除。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">- (void)removeObserver:(NSObject *)observer forKeyPath:(NSString *)keyPath context:(nullable void *)context API_AVAILABLE(macos(10.7), ios(5.0), watchos(2.0), tvos(9.0));</span><br><span class="line">- (void)removeObserver:(NSObject *)observer forKeyPath:(NSString *)keyPath;</span><br></pre></td></tr></table></figure>
+
+<h2 id="2-KVO中属性依赖"><a href="#2-KVO中属性依赖" class="headerlink" title="2. KVO中属性依赖"></a>2. KVO中属性依赖</h2><p>比如我们要监听<code>fullName</code>属性的变化，当<code>name</code>和<code>nickName</code>中的一个发生变化时，都需要改变<code>fullName</code>的值，需要怎么处理？如果同时监听两个属性也不是不行，但是肯定还有其他更简便的方法。这就需要添加依赖。</p>
+<p>在<code>Person.m</code>中实现如下方法：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">+ (NSSet&lt;NSString *&gt; *)keyPathsForValuesAffectingValueForKey:(NSString *)key &#123;</span><br><span class="line">    </span><br><span class="line">    NSSet *keyPaths &#x3D; [super keyPathsForValuesAffectingValueForKey:key];</span><br><span class="line">    if ([key isEqualToString:@&quot;fullName&quot;]) &#123;</span><br><span class="line">        NSArray *affectingKeys &#x3D; @[@&quot;name&quot;, @&quot;nickName&quot;];</span><br><span class="line">        keyPaths &#x3D; [keyPaths setByAddingObjectsFromArray:affectingKeys];</span><br><span class="line">    &#125;</span><br><span class="line">    return keyPaths;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这样就可以实现依赖监听了，也不用实现重复代码。</p>
+<h2 id="3-KVO监听数组"><a href="#3-KVO监听数组" class="headerlink" title="3. KVO监听数组"></a>3. KVO监听数组</h2><p>我们实现对person.mArray的监听，但是当我们执行添加和删除操作时，方法并不会触发监听事件。</p>
+<p>这也就时开始的时候所说的，KVO是基于KVC的，这个时候，我们利用KVC的方式获取数组就可以实现了。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; [self.person.mArray addObject:@&quot;1&quot;];</span><br><span class="line">[[self.person mutableArrayValueForKey:@&quot;mArray&quot;] addObject:@&quot;1&quot;];</span><br></pre></td></tr></table></figure>
+
+<h2 id="4-自动、手动实现监听"><a href="#4-自动、手动实现监听" class="headerlink" title="4. 自动、手动实现监听"></a>4. 自动、手动实现监听</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 自动开关</span><br><span class="line">+ (BOOL)automaticallyNotifiesObserversForKey:(NSString *)key</span><br></pre></td></tr></table></figure>
+<p>这是一个系统方法，只需要重写即可，默认是YES，如果针对某些key返回了NO，则需要手动实现set方法。没有实现则不会监听到。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">- (void)setName:(NSString *)name&#123;</span><br><span class="line">    [self willChangeValueForKey:@&quot;name&quot;];</span><br><span class="line">    _name &#x3D; name;</span><br><span class="line">    [self didChangeValueForKey:@&quot;name&quot;];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<h1 id="KVO底层原理"><a href="#KVO底层原理" class="headerlink" title="KVO底层原理"></a>KVO底层原理</h1><p>我们通过监听一个中的<code>name</code>属性的变化来判断监听前后会出现什么不同，来查看KVO的底层实现原理。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">self.person &#x3D; [Person new];</span><br><span class="line"></span><br><span class="line">[self.person addObserver:self forKeyPath:@&quot;name&quot; options:(NSKeyValueObservingOptionNew) context:NULL];</span><br></pre></td></tr></table></figure>
+
+<p>我们在这一行代码添加一个断点，分别通过lldb打印当前person的变化。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">(lldb) po self.person</span><br><span class="line">&lt;Person: 0x60000294a010&gt;</span><br><span class="line">(lldb) po self.person-&gt;isa</span><br><span class="line">Person</span><br><span class="line">(lldb) po [self.person class]</span><br><span class="line">Person</span><br><span class="line">(lldb) po [self.person superclass]</span><br><span class="line">NSObject</span><br><span class="line"></span><br><span class="line">(lldb) po self.person</span><br><span class="line">&lt;Person: 0x60000294a010&gt;</span><br><span class="line">(lldb) po self.person-&gt;isa</span><br><span class="line">NSKVONotifying_Person</span><br><span class="line">(lldb) po [self.person class]</span><br><span class="line">Person</span><br><span class="line">(lldb) po [self.person superclass]</span><br><span class="line">NSObject</span><br></pre></td></tr></table></figure>
+
+<p>我们发现虽然两次<code>po self.person</code>输出的都是Person类，指向的内存地址也是一样的，两次输出class和superClass确都相同。但是<code>isa</code>的指向却是完全不同，竟然变成了<code>NSKVONotifying_Person</code>。</p>
+<p>那<code>NSKVONotifying_Person</code>是什么呢？怎么会创建一个这个东西，难道是<code>Person</code>的子类？<br>猜测应该是Person的子类。</p>
+<p>为什么两次输出class和superClass都是一样的？<br>我们猜测可能是改写了class方法。</p>
+<p>带着疑问，我们输出一下监听前后的方法列表，已经两个class的superClass。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">-(void)viewDidLoad &#123;</span><br><span class="line">    &#x2F;&#x2F; 通过使用字符串的方式获取Class</span><br><span class="line">    Class cls1 &#x3D; class_getSuperclass(objc_getClass(&quot;Person&quot;));</span><br><span class="line">    [self printClassAllMethod:objc_getClass(&quot;Person&quot;)];</span><br><span class="line">    NSLog(@&quot;cls1 &#x3D; %@&quot;, cls1);</span><br><span class="line">        </span><br><span class="line">    self.person &#x3D; [[Person alloc] init];</span><br><span class="line">    [self.person addObserver:self forKeyPath:@&quot;name&quot; options:(NSKeyValueObservingOptionNew) context:NULL];</span><br><span class="line">        </span><br><span class="line">    [self printClassAllMethod:objc_getClass(&quot;NSKVONotifying_Person&quot;)];</span><br><span class="line">    Class cls2 &#x3D; class_getSuperclass(objc_getClass(&quot;NSKVONotifying_Person&quot;));</span><br><span class="line">    NSLog(@&quot;cls2 &#x3D; %@&quot;, cls2);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">#pragma mark - 遍历方法-ivar-property</span><br><span class="line">- (void)printClassAllMethod:(Class)cls &#123;</span><br><span class="line">    NSLog(@&quot;----%@----&quot;, cls);</span><br><span class="line">    unsigned int count &#x3D; 0;</span><br><span class="line">    Method *methodList &#x3D; class_copyMethodList(cls, &amp;count);</span><br><span class="line">    for (int i &#x3D; 0; i&lt;count; i++) &#123;</span><br><span class="line">        Method method &#x3D; methodList[i];</span><br><span class="line">        SEL sel &#x3D; method_getName(method);</span><br><span class="line">        IMP imp &#x3D; class_getMethodImplementation(cls, sel);</span><br><span class="line">        </span><br><span class="line">        NSLog(@&quot;%@-%p&quot;,NSStringFromSelector(sel),imp);</span><br><span class="line">    &#125;</span><br><span class="line">    free(methodList);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>输出结果：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 监听前</span><br><span class="line">KVODemo[74347:5007124] ----Person----</span><br><span class="line">KVODemo[74347:5007124] name-0x105ec6550</span><br><span class="line">KVODemo[74347:5007124] .cxx_destruct-0x105ec6580</span><br><span class="line">KVODemo[74347:5007124] setName:-0x105ec64f0</span><br><span class="line">KVODemo[74347:5007124] cls1 &#x3D; NSObject</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 监听后</span><br><span class="line">KVODemo[74347:5007124] ----NSKVONotifying_Person----</span><br><span class="line">KVODemo[74347:5007124] setName:-0x7fff207bab57</span><br><span class="line">KVODemo[74347:5007124] class-0x7fff207b9662</span><br><span class="line">KVODemo[74347:5007124] dealloc-0x7fff207b940b</span><br><span class="line">KVODemo[74347:5007124] _isKVOA-0x7fff207b9403</span><br><span class="line">KVODemo[74347:5007124] cls2 &#x3D; Person</span><br></pre></td></tr></table></figure>
+
+<p>我们发现:</p>
+<ul>
+<li>监听前Person类中有3个方法，super是<code>NSObject</code></li>
+<li>监听后Person类中有4个方法，super是<code>Person</code></li>
+</ul>
+<p>进一步验证了我们之前的猜测，<code>NSKVONotifying_Person</code>是<code>Person</code>的子类，并且重些了<code>setName:, class, dealloc</code>方法，因为地址都已经发生了变化。</p>
+<p>打印一下对应的IMP地址，看看所在的调用栈：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">(lldb) po (IMP)0x105ec64f0</span><br><span class="line">(KVODemo&#96;-[Person setName:] at Person.m:12)</span><br><span class="line"></span><br><span class="line">(lldb) po (IMP)0x7fff207bab57</span><br><span class="line">(Foundation&#96;_NSSetObjectValueAndNotify)</span><br><span class="line">return class_getSuperclass(object_getClass(self));</span><br></pre></td></tr></table></figure>
+
+<p>也说明了，根本不是同一个IMP。当然<code>_NSSetObjectValueAndNotify</code>也不仅仅只有一种，使用<code>~ nm Foundation | grep ValueAndNotify</code>命令可以在iTerm2上查看对应的方法。比如：NSSetBoolValueAndNotify、NSSetIntValueAndNotify等等，根据当前属性的类型来判断的。</p>
+<p>也正是因为重写了，<code>setName:</code>才会在外部调用时，person.name也会同时改变。<br>重新<code>class</code>方法，是为了不暴露<code>NSKVONotifying_Person</code>类，在外界调用时防止混淆。</p>
+<p><img src="person-isa.jpg" alt=""></p>
+<h1 id="自定义KVO"><a href="#自定义KVO" class="headerlink" title="自定义KVO"></a>自定义KVO</h1><p>根据上面的分析，如果自定义KVO的话，我们需要从下面几个方面入手：</p>
+<ol>
+<li><p>先判断key有没有set方法，有set方法才行。</p>
+</li>
+<li><p>动态生成子类：</p>
+<ol>
+<li>判断是否已经存在子类，没有创建新的子类。</li>
+<li>注册类</li>
+<li>添加class方法，重新class方法</li>
+<li>添加setter方法，重新set方法，这里需要处理消息，发送给父类，通知修改值。</li>
+</ol>
+</li>
+<li><p>修改isa指向</p>
+</li>
+<li><p>保存信息，方便回调。</p>
+</li>
+<li><p>remove时，重新设置isa指向父类。</p>
+</li>
+</ol>
+<p>代码就不贴了，哪都有~</p>
+<h1 id="通过GNU解析"><a href="#通过GNU解析" class="headerlink" title="通过GNU解析"></a>通过GNU解析</h1><p><a href="http://www.gnustep.org/resources/downloads.php" target="_blank" rel="noopener">gnu源码</a></p>
+<p>gnu源码可以清晰的看到整体的流程，只是读起来可能会稍微费力一点，查看代码中的重要逻辑其实就可以了。</p>
+<h1 id="FBKVOController"><a href="#FBKVOController" class="headerlink" title="FBKVOController"></a>FBKVOController</h1><p>稍微说一下这个，内部实现还是很值得学习的。</p>
+<p>我们直接看源码实现：</p>
+<p>首先创建一个<code>FBKVOController</code>类型的实例变量。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">- (instancetype)initWithObserver:(nullable id)observer retainObserved:(BOOL)retainObserved</span><br><span class="line">&#123;</span><br><span class="line">  self &#x3D; [super init];</span><br><span class="line">  if (nil !&#x3D; self) &#123;</span><br><span class="line">    _observer &#x3D; observer;</span><br><span class="line">    NSPointerFunctionsOptions keyOptions &#x3D; retainObserved ? NSPointerFunctionsStrongMemory|NSPointerFunctionsObjectPointerPersonality : NSPointerFunctionsWeakMemory|NSPointerFunctionsObjectPointerPersonality;</span><br><span class="line">    _objectInfosMap &#x3D; [[NSMapTable alloc] initWithKeyOptions:keyOptions valueOptions:NSPointerFunctionsStrongMemory|NSPointerFunctionsObjectPersonality capacity:0];</span><br><span class="line">    pthread_mutex_init(&amp;_lock, NULL);</span><br><span class="line">  &#125;</span><br><span class="line">  return self;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里会生成一个<code>NSMapTable</code>类型的数据，里面存放的是&lt;id, NSMutableSet&lt;_FBKVOInfo *&gt; *&gt;这种格式的数据。</p>
+<p>然后走到添加监听的方法，这里也没啥好说的，就是创建了一个<code>_FBKVOInfo</code>，存放系统KVO需要的所有东西，重点再下一句代码。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">- (void)observe:(nullable id)object keyPath:(NSString *)keyPath options:(NSKeyValueObservingOptions)options block:(FBKVONotificationBlock)block</span><br><span class="line">&#123;</span><br><span class="line">  NSAssert(0 !&#x3D; keyPath.length &amp;&amp; NULL !&#x3D; block, @&quot;missing required parameters observe:%@ keyPath:%@ block:%p&quot;, object, keyPath, block);</span><br><span class="line">  if (nil &#x3D;&#x3D; object || 0 &#x3D;&#x3D; keyPath.length || NULL &#x3D;&#x3D; block) &#123;</span><br><span class="line">    return;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; create info</span><br><span class="line">  _FBKVOInfo *info &#x3D; [[_FBKVOInfo alloc] initWithController:self keyPath:keyPath options:options block:block];</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; observe object with info</span><br><span class="line">  [self _observe:object info:info];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>好了，重点来了。会从map表中查找对应的object是否有对应的数据。然后与新创建的info进行比较，没有则添加到map表中。</p>
+<p><code>_FBKVOSharedController</code>是一个单利，所有的观察者都通过它来进行监听，内部使用的系统的KVO。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">- (void)_observe:(id)object info:(_FBKVOInfo *)info</span><br><span class="line">&#123;</span><br><span class="line">  &#x2F;&#x2F; lock</span><br><span class="line">  pthread_mutex_lock(&amp;_lock);</span><br><span class="line"></span><br><span class="line">  NSMutableSet *infos &#x3D; [_objectInfosMap objectForKey:object];</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; check for info existence</span><br><span class="line">  _FBKVOInfo *existingInfo &#x3D; [infos member:info];</span><br><span class="line">  if (nil !&#x3D; existingInfo) &#123;</span><br><span class="line">    &#x2F;&#x2F; observation info already exists; do not observe it again</span><br><span class="line"></span><br><span class="line">    &#x2F;&#x2F; unlock and return</span><br><span class="line">    pthread_mutex_unlock(&amp;_lock);</span><br><span class="line">    return;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; lazilly create set of infos</span><br><span class="line">  if (nil &#x3D;&#x3D; infos) &#123;</span><br><span class="line">    infos &#x3D; [NSMutableSet set];</span><br><span class="line">    [_objectInfosMap setObject:infos forKey:object];</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; add info and oberve</span><br><span class="line">  [infos addObject:info];</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; unlock prior to callout</span><br><span class="line">  pthread_mutex_unlock(&amp;_lock);</span><br><span class="line"></span><br><span class="line">  [[_FBKVOSharedController sharedController] observe:object info:info];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在系统方法接收到改变时，会通过block、方法或者系统方法来返回数据。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">- (void)observeValueForKeyPath:(nullable NSString *)keyPath</span><br><span class="line">                      ofObject:(nullable id)object</span><br><span class="line">                        change:(nullable NSDictionary&lt;NSString *, id&gt; *)change</span><br><span class="line">                       context:(nullable void *)context</span><br></pre></td></tr></table></figure>
+
+<p>最后就是移除。需要注意的是，添加的时候是新创建了一个info，移除的时候，为啥也是新创建了一个info？</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">- (void)unobserve:(nullable id)object keyPath:(NSString *)keyPath</span><br><span class="line">&#123;</span><br><span class="line">  &#x2F;&#x2F; create representative info</span><br><span class="line">  _FBKVOInfo *info &#x3D; [[_FBKVOInfo alloc] initWithController:self keyPath:keyPath];</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; unobserve object property</span><br><span class="line">  [self _unobserve:object info:info];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>_unobserve:info:</code>的内部实现与添加的时候有点类似，都是通过map去找对应的<code>_FBKVOInfo</code>。那新创建一个info能起到移除的效果吗？答案是肯定的。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">- (void)_unobserve:(id)object info:(_FBKVOInfo *)info</span><br><span class="line">&#123;</span><br><span class="line">  &#x2F;&#x2F; lock</span><br><span class="line">  pthread_mutex_lock(&amp;_lock);</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; get observation infos</span><br><span class="line">  NSMutableSet *infos &#x3D; [_objectInfosMap objectForKey:object];</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; lookup registered info instance</span><br><span class="line">  _FBKVOInfo *registeredInfo &#x3D; [infos member:info];</span><br><span class="line"></span><br><span class="line">  if (nil !&#x3D; registeredInfo) &#123;</span><br><span class="line">    [infos removeObject:registeredInfo];</span><br><span class="line"></span><br><span class="line">    &#x2F;&#x2F; remove no longer used infos</span><br><span class="line">    if (0 &#x3D;&#x3D; infos.count) &#123;</span><br><span class="line">      [_objectInfosMap removeObjectForKey:object];</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; unlock</span><br><span class="line">  pthread_mutex_unlock(&amp;_lock);</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; unobserve</span><br><span class="line">  [[_FBKVOSharedController sharedController] unobserve:object info:registeredInfo];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>因为创建的临时变量info，是通过NSMutableSet获取<code>member</code>来获取的，是怎么获取到的。</p>
+<blockquote>
+<p>Each element of the set is checked for equality with object until a match is found or the end of the set is reached. Objects are considered equal if isEqual: returns YES.</p>
+</blockquote>
+<p><code>member:</code>方法是通过<code>isEqual:</code>来判断是否是对应的值。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F;_FBKVOInfo</span><br><span class="line">- (NSUInteger)hash</span><br><span class="line">&#123;</span><br><span class="line">  return [_keyPath hash];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (BOOL)isEqual:(id)object</span><br><span class="line">&#123;</span><br><span class="line">  if (nil &#x3D;&#x3D; object) &#123;</span><br><span class="line">    return NO;</span><br><span class="line">  &#125;</span><br><span class="line">  if (self &#x3D;&#x3D; object) &#123;</span><br><span class="line">    return YES;</span><br><span class="line">  &#125;</span><br><span class="line">  if (![object isKindOfClass:[self class]]) &#123;</span><br><span class="line">    return NO;</span><br><span class="line">  &#125;</span><br><span class="line">  return [_keyPath isEqualToString:((_FBKVOInfo *)object)-&gt;_keyPath];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>重写了<code>hash</code>方法和<code>isEqual:</code>方法，这样就可以直接通过member获取了。这源码的设计思路简直爽的一批<del>~</del>网上找到FBKVO流程图：</p>
+<p><img src="FBKVOController.png" alt="网上找到FBKVO流程图"></p>
+<h1 id="总结："><a href="#总结：" class="headerlink" title="总结："></a>总结：</h1><ol>
+<li>KVO的变量依赖</li>
+<li>KVO的原理：<ol>
+<li>动态生成子类<code>NSKVONotifying_A</code></li>
+<li>注册类</li>
+<li>动态添加class方法，返回父类</li>
+<li>动态添加set方法，消息回传给父类，通知修改值</li>
+<li>修改isa指向子类</li>
+<li>移除KVO，修改isa执行父类</li>
+</ol>
+</li>
+<li>GNU源码</li>
+<li>FBKVOController源码设计思路。</li>
+</ol>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+        
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block home" lang="zh-CN">
     <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/05/08/OC%E5%8E%9F%E7%90%86/KVC%E5%8E%9F%E7%90%86/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -988,7 +1189,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block home" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/04/17/OC%E5%8E%9F%E7%90%86/%E5%86%85%E5%AD%98%E5%AF%B9%E9%BD%90/">
+    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/04/17/OC%E5%8E%9F%E7%90%86/oc-2-%E5%86%85%E5%AD%98%E5%AF%B9%E9%BD%90/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.jpg">
@@ -1002,7 +1203,7 @@
       <header class="post-header">
         <h1 class="post-title" itemprop="name headline">
           
-            <a href="/2021/04/17/OC%E5%8E%9F%E7%90%86/%E5%86%85%E5%AD%98%E5%AF%B9%E9%BD%90/" class="post-title-link" itemprop="url">2.内存对齐</a>
+            <a href="/2021/04/17/OC%E5%8E%9F%E7%90%86/oc-2-%E5%86%85%E5%AD%98%E5%AF%B9%E9%BD%90/" class="post-title-link" itemprop="url">oc-2-内存对齐</a>
         </h1>
 
         <div class="post-meta">
@@ -1019,7 +1220,7 @@
                   <i class="fa fa-calendar-check-o"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-05-10 16:35:30" itemprop="dateModified" datetime="2021-05-10T16:35:30+08:00">2021-05-10</time>
+                <time title="修改时间：2021-06-09 11:42:34" itemprop="dateModified" datetime="2021-06-09T11:42:34+08:00">2021-06-09</time>
               </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -1042,7 +1243,83 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <h1 id="1-对象的内存对齐"><a href="#1-对象的内存对齐" class="headerlink" title="1. 对象的内存对齐"></a>1. 对象的内存对齐</h1><p>先看代码哈~</p>
+          <h1 id="1-calloc"><a href="#1-calloc" class="headerlink" title="1. calloc"></a>1. calloc</h1><p>在上一节中，我们知道开辟空间会用到<code>calloc</code>这个函数，那我们就追一下这个函数的内部逻辑。</p>
+<p>但是发现<code>calloc</code>这个方法没有办法继续下一步追踪了，如图：</p>
+<p><img src="calloc-1.jpg" alt=""></p>
+<p>我们发现<code>calloc</code>定义在<code>malloc/_malloc.h</code>文件下，我们也找到了对应的<a href="https://opensource.apple.com/tarballs/libmalloc/" target="_blank" rel="noopener">源码</a>。我这里用的是一份可运行的源码。</p>
+<p>接下来，直接上代码，在main函数中：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 开辟40个字节的空间</span><br><span class="line">void *p &#x3D; calloc(1, 40);</span><br><span class="line">NSLog(@&quot;%lu&quot;,malloc_size(p));</span><br></pre></td></tr></table></figure>
+
+<p>直接运行，查看<code>malloc.c -&gt; calloc</code>的内部实现。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">void *</span><br><span class="line">calloc(size_t num_items, size_t size)</span><br><span class="line">&#123;</span><br><span class="line">	return _malloc_zone_calloc(default_zone, num_items, size, MZ_POSIX);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到<code>calloc</code>只是调用了<code>_malloc_zone_calloc</code>方法，其它啥也没做，这里需要注意的是，<code>default_zone</code>参数，它是一个虚拟的默认zone，通过它可以做一些事情，如下：</p>
+<h2 id="malloc-zone-calloc"><a href="#malloc-zone-calloc" class="headerlink" title="_malloc_zone_calloc"></a>_malloc_zone_calloc</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">static void *</span><br><span class="line">_malloc_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size,</span><br><span class="line">		malloc_zone_options_t mzo)</span><br><span class="line">&#123;</span><br><span class="line">	MALLOC_TRACE(TRACE_calloc | DBG_FUNC_START, (uintptr_t)zone, num_items, size, 0);</span><br><span class="line"></span><br><span class="line">	void *ptr;</span><br><span class="line">	if (malloc_check_start) &#123;</span><br><span class="line">		internal_check();</span><br><span class="line">	&#125;</span><br><span class="line">	ptr &#x3D; zone-&gt;calloc(zone, num_items, size);</span><br><span class="line"></span><br><span class="line">	if (os_unlikely(malloc_logger)) &#123;</span><br><span class="line">		malloc_logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE | MALLOC_LOG_TYPE_CLEARED, (uintptr_t)zone,</span><br><span class="line">				(uintptr_t)(num_items * size), 0, (uintptr_t)ptr, 0);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	MALLOC_TRACE(TRACE_calloc | DBG_FUNC_END, (uintptr_t)zone, num_items, size, (uintptr_t)ptr);</span><br><span class="line">	if (os_unlikely(ptr &#x3D;&#x3D; NULL)) &#123;</span><br><span class="line">		malloc_set_errno_fast(mzo, ENOMEM);</span><br><span class="line">	&#125;</span><br><span class="line">	return ptr;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>calloc</code>直接调用的是<code>_malloc_zone_calloc</code>。我们看一下这个函数的实现。通过返回值，我们确定重点代码应该与<code>ptr</code>有关。所以<code>_malloc_zone_calloc</code>精简如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">static void *</span><br><span class="line">_malloc_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size,</span><br><span class="line">		malloc_zone_options_t mzo)</span><br><span class="line">&#123;</span><br><span class="line">	MALLOC_TRACE(TRACE_calloc | DBG_FUNC_START, (uintptr_t)zone, num_items, size, 0);</span><br><span class="line"></span><br><span class="line">	void *ptr;</span><br><span class="line">	&#x2F;&#x2F; ptr初始化，这里打一个断点</span><br><span class="line">	ptr &#x3D; zone-&gt;calloc(zone, num_items, size);</span><br><span class="line"></span><br><span class="line">	return ptr;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>运行到这里，发现<code>zone-&gt;calloc</code>进去是一个函数的声明，有没有下文了。这是，我们用lldb调试，打印一下数据：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">(lldb) p zone-&gt;calloc</span><br><span class="line">(void *(*)(_malloc_zone_t *, size_t, size_t)) $0 &#x3D; 0x00000001002f4b93 (.dylib&#96;default_zone_calloc at malloc.c:385)</span><br></pre></td></tr></table></figure>
+
+<p>感觉发现了新大陆：<code>default_zone_calloc</code>在<code>malloc.c</code>文件的第385行。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">static void *</span><br><span class="line">default_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size)</span><br><span class="line">&#123;</span><br><span class="line">	zone &#x3D; runtime_default_zone();</span><br><span class="line">	</span><br><span class="line">	return zone-&gt;calloc(zone, num_items, size);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>到这里，又有一个<code>zone</code>。这个才是创建的runtime时的default zone。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">MALLOC_NOEXPORT malloc_zone_t* lite_zone &#x3D; NULL;</span><br><span class="line"></span><br><span class="line">MALLOC_ALWAYS_INLINE</span><br><span class="line">static inline malloc_zone_t *</span><br><span class="line">runtime_default_zone() &#123;</span><br><span class="line">  &#x2F;&#x2F; lite_zone &#x3D; null，所以会执行创建</span><br><span class="line">	return (lite_zone) ? lite_zone : inline_malloc_default_zone();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">⬇️</span><br><span class="line"></span><br><span class="line">static inline malloc_zone_t *</span><br><span class="line">inline_malloc_default_zone(void)</span><br><span class="line">&#123;</span><br><span class="line">    &#x2F;&#x2F; 只创建一次，内部是一个os_once</span><br><span class="line">    _malloc_initialize_once();</span><br><span class="line">    &#x2F;&#x2F; malloc_report(ASL_LEVEL_INFO, &quot;In inline_malloc_default_zone with %d %d\n&quot;, malloc_num_zones, malloc_has_debug_zone);</span><br><span class="line">    &#x2F;&#x2F; 可以看到malloc_zones是一个(malloc_zone_t **)类型的数据</span><br><span class="line">    &#x2F;&#x2F; malloc_zone_t **malloc_zones &#x3D; (malloc_zone_t **)0xdeaddeaddeaddead;</span><br><span class="line">    return malloc_zones[0];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里看一下<code>malloc_zones</code>的内容：</p>
+<p><img src="malloc_zones.png" alt=""></p>
+<h2 id="malloc-zone-t"><a href="#malloc-zone-t" class="headerlink" title="_malloc_zone_t"></a>_malloc_zone_t</h2><p>上面的大部分内容都是围绕着<code>_malloc_zone_t</code>展开的。</p>
+<p>这里可以看到<code>malloc_zones[0]</code>的元素就是一个<code>malloc_zone_t *</code>类型的数据，根据lldb打印出来的数据和查看到的内容可以看到<code>malloc_zone_t</code>中存放的就是一些我们在开辟空间时需要调用的方法。</p>
+<p>看一下<code>_malloc_zone_t</code>结构体</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">#define MALLOC_ZONE_FN_PTR(fn) fn</span><br><span class="line"></span><br><span class="line">typedef struct _malloc_zone_t &#123;</span><br><span class="line">    &#x2F;* Only zone implementors should depend on the layout of this structure;</span><br><span class="line">    Regular callers should use the access functions below *&#x2F;</span><br><span class="line">    void	*reserved1;	&#x2F;* RESERVED FOR CFAllocator DO NOT USE *&#x2F;</span><br><span class="line">    void	*reserved2;	&#x2F;* RESERVED FOR CFAllocator DO NOT USE *&#x2F;</span><br><span class="line">    size_t 	(* MALLOC_ZONE_FN_PTR(size))(struct _malloc_zone_t *zone, const void *ptr); </span><br><span class="line">    void 	*(* MALLOC_ZONE_FN_PTR(malloc))(struct _malloc_zone_t *zone, size_t size);</span><br><span class="line">    void 	*(* MALLOC_ZONE_FN_PTR(calloc))(struct _malloc_zone_t *zone, size_t num_items, size_t size); </span><br><span class="line">    void 	*(* MALLOC_ZONE_FN_PTR(valloc))(struct _malloc_zone_t *zone, size_t size); &#x2F;* same as malloc, but block returned is set to zero and is guaranteed to be page aligned *&#x2F;</span><br><span class="line">    void 	(* MALLOC_ZONE_FN_PTR(free))(struct _malloc_zone_t *zone, void *ptr);</span><br><span class="line">    void 	*(* MALLOC_ZONE_FN_PTR(realloc))(struct _malloc_zone_t *zone, void *ptr, size_t size);</span><br><span class="line">    void 	(* MALLOC_ZONE_FN_PTR(destroy))(struct _malloc_zone_t *zone);</span><br><span class="line">    const char	*zone_name;</span><br><span class="line">    </span><br><span class="line">    ...</span><br><span class="line">    </span><br><span class="line">    boolean_t (* MALLOC_ZONE_FN_PTR(claimed_address))(struct _malloc_zone_t *zone, void *ptr);</span><br><span class="line">&#125; malloc_zone_t;</span><br></pre></td></tr></table></figure>
+
+<p>结构体中的数据与我们图片上的内容是一样的，定义了很多的方法。以<code>calloc</code>为例。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">void 	*(* MALLOC_ZONE_FN_PTR(calloc))(struct _malloc_zone_t *zone, size_t num_items, size_t size);</span><br><span class="line"></span><br><span class="line">转换之后的方法为：</span><br><span class="line"></span><br><span class="line">calloc(_malloc_zone_t *zone, size_tnum_items, size_t size) &#123;</span><br><span class="line">    &#x2F;&#x2F; 调用.dylib中的方法，nano_malloc.c : 878</span><br><span class="line">    nano_calloc(zone, num_items, size);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们也可以用同样的方式打印一下看看：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">(lldb) po zone-&gt;calloc</span><br><span class="line">(.dylib&#96;nano_calloc at nano_malloc.c:878)</span><br></pre></td></tr></table></figure>
+
+<p>打印出来的信息已经很全面了，同样告诉我们了<code>nano_calloc</code>方法在<code>nano_malloc.c</code>文件中。</p>
+<h2 id="nano-calloc"><a href="#nano-calloc" class="headerlink" title="nano_calloc"></a>nano_calloc</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">static void *</span><br><span class="line">nano_calloc(nanozone_t *nanozone, size_t num_items, size_t size)</span><br><span class="line">&#123;</span><br><span class="line">	size_t total_bytes;</span><br><span class="line">   &#x2F;&#x2F; alloc之前需要先判断申请的空间大小是否合理</span><br><span class="line">	if (calloc_get_size(num_items, size, 0, &amp;total_bytes)) &#123;</span><br><span class="line">		return NULL;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; 如果获取到的大小在系统约定的最大值范围内则，直接进行malloc。</span><br><span class="line">	if (total_bytes &lt;&#x3D; NANO_MAX_SIZE) &#123;</span><br><span class="line">	   &#x2F;&#x2F; 所以一定会走这里</span><br><span class="line">		void *p &#x3D; _nano_malloc_check_clear(nanozone, total_bytes, 1);</span><br><span class="line">		if (p) &#123;</span><br><span class="line">			return p;</span><br><span class="line">		&#125; else &#123;</span><br><span class="line">			&#x2F;* FALLTHROUGH to helper zone *&#x2F;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	malloc_zone_t *zone &#x3D; (malloc_zone_t *)(nanozone-&gt;helper_zone);</span><br><span class="line">	&#x2F;&#x2F; 如果初始化失败，则继续执行。</span><br><span class="line">	return zone-&gt;calloc(zone, 1, total_bytes);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在<code>nano_calloc</code>中，我们同样的先看返回值，最底部的是又继续调用了<code>zone-&gt;calloc</code>，感觉不太对，上面就找到了还有一个返回<code>p</code>的位置。运行也确实会走到这里。</p>
+<p>接下来就是重点了哈~</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">static void *</span><br><span class="line">_nano_malloc_check_clear(nanozone_t *nanozone, size_t size, boolean_t cleared_requested)</span><br><span class="line">&#123;</span><br><span class="line">	MALLOC_TRACE(TRACE_nano_malloc, (uintptr_t)nanozone, size, cleared_requested, 0);</span><br><span class="line"></span><br><span class="line">	void *ptr;</span><br><span class="line">	size_t slot_key;   &#x2F;&#x2F; 插槽的key</span><br><span class="line">	&#x2F;&#x2F; 获取真正的内存大小，以及slot_key</span><br><span class="line">	size_t slot_bytes &#x3D; segregated_size_to_fit(nanozone, size, &amp;slot_key); &#x2F;&#x2F; Note slot_key is set here</span><br><span class="line">	&#x2F;&#x2F; 拿到插槽的index</span><br><span class="line">	mag_index_t mag_index &#x3D; nano_mag_index(nanozone);</span><br><span class="line">  &#x2F;&#x2F;  </span><br><span class="line">	nano_meta_admin_t pMeta &#x3D; &amp;(nanozone-&gt;meta_data[mag_index][slot_key]);</span><br><span class="line"></span><br><span class="line">	ptr &#x3D; OSAtomicDequeue(&amp;(pMeta-&gt;slot_LIFO), offsetof(struct chained_block_s, next));</span><br><span class="line">	if (ptr) &#123;</span><br><span class="line">		&#x2F;&#x2F; 这里都是error的判断</span><br><span class="line">	&#125; else &#123;</span><br><span class="line">	   &#x2F;&#x2F; 死循环获取内存指针，拿到返回</span><br><span class="line">		ptr &#x3D; segregated_next_block(nanozone, pMeta, slot_bytes, mag_index);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	if (cleared_requested &amp;&amp; ptr) &#123;</span><br><span class="line">		memset(ptr, 0, slot_bytes); &#x2F;&#x2F; TODO: Needs a memory barrier after memset to ensure zeroes land first?</span><br><span class="line">	&#125;</span><br><span class="line">	return ptr;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>接下来看一下开辟空间的算法：segregated_size_to_fit</p>
+<h2 id="segregated-size-to-fit"><a href="#segregated-size-to-fit" class="headerlink" title="segregated_size_to_fit"></a>segregated_size_to_fit</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">static MALLOC_INLINE size_t</span><br><span class="line">segregated_size_to_fit(nanozone_t *nanozone, size_t size, size_t *pKey)</span><br><span class="line">&#123;</span><br><span class="line">	size_t k, slot_bytes;</span><br><span class="line"></span><br><span class="line">	if (0 &#x3D;&#x3D; size) &#123;</span><br><span class="line">		size &#x3D; NANO_REGIME_QUANTA_SIZE; &#x2F;&#x2F; Historical behavior</span><br><span class="line">	&#125;</span><br><span class="line">	k &#x3D; (size + NANO_REGIME_QUANTA_SIZE - 1) &gt;&gt; SHIFT_NANO_QUANTUM; &#x2F;&#x2F; round up and shift for number of quanta</span><br><span class="line">	slot_bytes &#x3D; k &lt;&lt; SHIFT_NANO_QUANTUM;							&#x2F;&#x2F; multiply by power of two quanta size</span><br><span class="line">	*pKey &#x3D; k - 1;													&#x2F;&#x2F; Zero-based!</span><br><span class="line"></span><br><span class="line">	return slot_bytes;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这个算法在上一节中计算<code>alignedInstanceSize</code>类似。这里的主要逻辑是先右移4位，再左移4位。相当于把后4位抹零。拿我们开辟空间传进来的40为例计算一下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">(size + NANO_REGIME_QUANTA_SIZE - 1) &#x3D; 40 + 15 -1</span><br><span class="line">54 -&gt; 0011 0110</span><br><span class="line">&gt;&gt; 4  0000 0011         &#x2F;&#x2F; 右移4位</span><br><span class="line">&lt;&lt; 4  0011 0000 &#x3D; 48    &#x2F;&#x2F; 左移4位</span><br></pre></td></tr></table></figure>
+
+<p>这里计算出来的大小就是48。而<code>slot_key=47</code>。之后就是获取内存指针。</p>
+<p><img src="calloc-2.jpg" alt=""></p>
+<p>这就是<code>calloc</code>的流程，同时，再一次验证了，iOS在内存中是16字节对齐。</p>
+<h1 id="2-结构体的内存对齐"><a href="#2-结构体的内存对齐" class="headerlink" title="2. 结构体的内存对齐"></a>2. 结构体的内存对齐</h1><p>结构体内存对齐3打原则：</p>
+<blockquote>
+<ol>
+<li>数据成员对⻬规则：结构体(struct)的数据成员，第一个数据成员放在offset为0的地方，以后每个数据成员存储的起始位置要从该成员大小或者成员的子成员大小(只要该成员有子成员，比如说是数组，结构体等)的整数倍开始(比如int为4字节,则要从4的整数倍地址开始存储。</li>
+<li>结构体作为成员：如果一个结构里有某些结构体成员，则结构体成员要从其内部最大元素大小的整数倍地址开始存储。(struct a里存有struct b，b里有char，int, double等元素，那b应该从8的整数倍开始存储)</li>
+<li>收尾工作：结构体的总大小，也就是sizeof的结果，必须是其内部最大成员的整数倍。不足的要补⻬。</li>
+</ol>
+</blockquote>
+<p>开始代码之前，先了解一下各种数据类型所占的内存大小：</p>
+<p><img src="calloc-3.jpg" alt=""></p>
+<p>接下来上代码，看看结构体的内存：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">struct Struct1 &#123;</span><br><span class="line">    double a;   </span><br><span class="line">    char b;     </span><br><span class="line">    int c;      </span><br><span class="line">    short d;    </span><br><span class="line">&#125;str1;</span><br><span class="line"></span><br><span class="line">struct Struct2 &#123;</span><br><span class="line">    double a; </span><br><span class="line">    int b;    </span><br><span class="line">    char c;   </span><br><span class="line">    short d;  </span><br><span class="line">&#125;str2;</span><br><span class="line"></span><br><span class="line">NSLog(@&quot;str1 &#x3D; %lu, str2-%lu&quot;,sizeof(str1),sizeof(str2));</span><br></pre></td></tr></table></figure>
+
+<p>输出的结果很明白的哈。<code>str1 = 24, str2-16</code></p>
+<p>我们分析一下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">struct Struct1 &#123;</span><br><span class="line">    double a;   &#x2F;&#x2F; 8 (0-7)</span><br><span class="line">    char b;     &#x2F;&#x2F; 1 [8 1] (8)</span><br><span class="line">    int c;      &#x2F;&#x2F; 4 [9 10 11 12] 9不是4的整数倍(12 13 14 15)</span><br><span class="line">    short d;    &#x2F;&#x2F; 2 [16 17]</span><br><span class="line">&#125;str1;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 内部需要的大小为: 17</span><br><span class="line">&#x2F;&#x2F; 最大属性 : 8</span><br><span class="line">&#x2F;&#x2F; 结构体整数倍: 24</span><br><span class="line"></span><br><span class="line">struct Struct2 &#123;</span><br><span class="line">    double a;   &#x2F;&#x2F;8 (0-7)</span><br><span class="line">    int b;      &#x2F;&#x2F;4 (8 9 10 11)</span><br><span class="line">    char c;     &#x2F;&#x2F;1 (12)</span><br><span class="line">    short d;    &#x2F;&#x2F;2 (13 14) 13不是2的整数倍，从14开始(14 15)</span><br><span class="line">&#125;str2;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 内部需要的大小为: 15</span><br><span class="line">&#x2F;&#x2F; 最大属性 : 8</span><br><span class="line">&#x2F;&#x2F; 结构体整数倍: 16</span><br><span class="line">NSLog(@&quot;str1 &#x3D; %lu, str2-%lu&quot;,sizeof(str1),sizeof(str2));</span><br></pre></td></tr></table></figure>
+
+<p>如果结构体内部套用结构体呢？</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">struct Struct3 &#123;</span><br><span class="line">    double a;   &#x2F;&#x2F;8 (0-7)</span><br><span class="line">    int b;      &#x2F;&#x2F;4 (8 9 10 11)</span><br><span class="line">    char c;     &#x2F;&#x2F;1 (12)</span><br><span class="line">    struct Struct2 str_2;   &#x2F;&#x2F; 13 14 15 (16 - 31)</span><br><span class="line">&#125;str3;</span><br><span class="line"></span><br><span class="line">NSLog(@&quot;str3 &#x3D; %lu&quot;, sizeof(str3));</span><br></pre></td></tr></table></figure>
+
+<p>按照内存对齐第二条原则，结构体成员从其内部最大成员的size的整数倍开始。c的位置是12，接下来的位置是13，不满足8的整数倍。所以按照原则，前面补齐，从16位开始。所以str3结构体的大小为32。</p>
+<h1 id="3-对象的内存对齐"><a href="#3-对象的内存对齐" class="headerlink" title="3. 对象的内存对齐"></a>3. 对象的内存对齐</h1><p>老样子，先看代码哈：</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">@interface Person : NSObject</span><br><span class="line"></span><br><span class="line">@property (nonatomic, copy) NSString *name;</span><br><span class="line">@property (nonatomic, assign) int age;</span><br><span class="line">@property (nonatomic, assign) int score;</span><br><span class="line">@property (nonatomic, assign) long height;</span><br><span class="line">@property (nonatomic) char c1;</span><br><span class="line">@property (nonatomic) char c2;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">main() &#123;</span><br><span class="line"></span><br><span class="line">Person *person &#x3D; [Person alloc];</span><br><span class="line">person.name &#x3D; @&quot;name&quot;;</span><br><span class="line">person.age &#x3D; 18;</span><br><span class="line">person.score &#x3D; 20;</span><br><span class="line">person.height &#x3D; 180;</span><br><span class="line">person.c1 &#x3D; &#39;a&#39;;</span><br><span class="line">person.c2 &#x3D; &#39;b&#39;;</span><br><span class="line"></span><br><span class="line">NSLog(@&quot;%@ - %lu - %lu - %lu&quot;,person,sizeof(person),class_getInstanceSize([Person class]),malloc_size((__bridge const void *)(person)));</span><br><span class="line">        </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>我们在NSLog上打个断点。有时间的话，可以把属性先注释掉，从0开始，一个属性一个属性的加起来看输出的是什么结果。</p>
@@ -1055,11 +1332,11 @@
 <p> 0x600002adbcf0：是person指向的首地址。后面存放的都是属性的值。内存都是连续的。</p>
 </li>
 <li><p>我们分别输出内存里的内容。</p>
- <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">(lldb) po 0x0000000103930808</span><br><span class="line">Person  &#x2F;&#x2F; isa指针</span><br><span class="line"></span><br><span class="line">(lldb) po 0x00000012</span><br><span class="line">18</span><br><span class="line"></span><br><span class="line">(lldb) po 61</span><br><span class="line">61</span><br><span class="line"></span><br><span class="line">(lldb) po 0x0000000000000014</span><br><span class="line">20</span><br><span class="line"></span><br><span class="line">(lldb) po 0x000000010392b038</span><br><span class="line">name</span><br><span class="line"></span><br><span class="line">(lldb) po 0x00000000000000b4</span><br><span class="line">180</span><br></pre></td></tr></table></figure>
+ <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">(lldb) po 0x0000000103930808</span><br><span class="line">Person  &#x2F;&#x2F; isa指针</span><br><span class="line"></span><br><span class="line">(lldb) po 0x00000012</span><br><span class="line">18</span><br><span class="line"></span><br><span class="line">(lldb) 0x61是十进制的97 -&gt; a</span><br><span class="line"></span><br><span class="line">(lldb) po 0x0000000000000014</span><br><span class="line">20</span><br><span class="line"></span><br><span class="line">(lldb) po 0x000000010392b038</span><br><span class="line">name</span><br><span class="line"></span><br><span class="line">(lldb) po 0x00000000000000b4</span><br><span class="line">180</span><br></pre></td></tr></table></figure>
 
 <p> 0x0000001200006261：这一块地址上内容是被拆开的。我们知道int是4个字节，char是1个字节，所以前面的几位是int的值，后面的再进行拆分，分别是两个char类型的数据。</p>
-<p> 苹果在内存上也是做了足够多的优化，虽然在内存上是16个字节对齐的，但是在内部实现上，还是进行了大量的优化，但是一定要注意的是，属性是按8个字节对齐的。</p>
-<p> 但是为啥两个int类型的数据没有放在一起呢？可能是系统内部做的优化，可以试一下，把所有的char类型注释掉，两个int类型的数据就会存放在一起。可能是会将char类型的数据优先进行填充吧。另外可以多试一下，3个char类型的会怎么样？</p>
+<p> 苹果在内存上也是做了足够多的优化，虽然在内存上是16个字节对齐的，以空间换时间，提高读取效率，但是在内部实现上，还是进行了大量的优化，这样做的目的是最大限度的节约内存同时保证数据的安全性，但是一定要注意的是，属性是按8个字节对齐的。</p>
+<p> 但是为啥两个int类型的数据没有放在一起呢？可能是系统内部做的优化，可以试一下，把所有的char类型注释掉，两个int类型的数据就会存放在一起。可能是会将char类型的数据优先进行填充吧。另外可以多试一下，3个char类型的会怎么样，等等…</p>
 </li>
 <li><p>最后输出的结果是</p>
  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&lt;Person: 0x600002adbcf0&gt; - 8 - 40 - 48</span><br></pre></td></tr></table></figure>
@@ -1072,33 +1349,24 @@
 </ul>
 </li>
 </ol>
-<h1 id="1-1-float、double"><a href="#1-1-float、double" class="headerlink" title="1.1 float、double"></a>1.1 float、double</h1><p>加如改变其中的一个属性位double类型的，又会是什么情况呢？我这里把上面的height改为了double类型。看一下输出结果</p>
+<h1 id="3-1-float、double"><a href="#3-1-float、double" class="headerlink" title="3.1 float、double"></a>3.1 float、double</h1><p>加如改变其中的一个属性位double类型的，又会是什么情况呢？我这里把上面的height改为了double类型。看一下输出结果</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">(lldb) x&#x2F;8gx person</span><br><span class="line">0x600000045530: 0x000000010626d808 0x0000001200006261</span><br><span class="line">0x600000045540: 0x0000000000000014 0x0000000106268038</span><br><span class="line">0x600000045550: 0x4066800000000000 0x0000000000000000</span><br><span class="line">0x600000045560: 0x0000000000000000 0x0000000000000000</span><br><span class="line">(lldb) po 0x4066800000000000</span><br><span class="line">4640537203540230144</span><br></pre></td></tr></table></figure>
 
-<p>诶<del>~</del> 怎么没有输出180呢？是因为对于float、double类型的数据，系统会做一次特殊的转换处理。我们没有办法直接从内存中读出double类型的值。（也有可能是我没有找到方法，有知道的小伙伴请告知，谢谢！）</p>
+<p>诶<del>~</del> 怎么没有输出180呢？是因为对于float、double类型的数据，系统会做一次特殊的转换处理。我们没有办法直接从内存中读出double类型的值。</p>
 <p>但是我们可以通过转化double类型的数据来看是否位上面对应的值。</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">(lldb) p&#x2F;x (double)180.0</span><br><span class="line">(double) $4 &#x3D; 0x4066800000000000</span><br></pre></td></tr></table></figure>
 <p>转换后，发现正好是对应的数据。</p>
-<h1 id="2-结构体的内存对齐"><a href="#2-结构体的内存对齐" class="headerlink" title="2. 结构体的内存对齐"></a>2. 结构体的内存对齐</h1><blockquote>
-<ol>
-<li>数据成员对⻬规则：结构体(struct)的数据成员，第一个数据成员放在offset为0的地方，以后每个数据成员存储的起始位置要从该成员大小或者成员的子成员大小(只要该成员有子成员，比如说是数组，结构体等)的整数倍开始(比如int为4字节,则要从4的整数倍地址开始存储。</li>
-<li>结构体作为成员：如果一个结构里有某些结构体成员，则结构体成员要从其内部最大元素大小的整数倍地址开始存储。(struct a里存有struct b，b里有char，int, double等元素，那b应该从8的整数倍开始存储)</li>
-<li>收尾工作：结构体的总大小，也就是sizeof的结果，必须是其内部最大成员的整数倍。不足的要补⻬。</li>
-</ol>
-</blockquote>
-<p>上代码，看看结构体的内存：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">struct Struct1 &#123;</span><br><span class="line">    double a;   </span><br><span class="line">    char b;     </span><br><span class="line">    int c;      </span><br><span class="line">    short d;    </span><br><span class="line">&#125;str1;</span><br><span class="line"></span><br><span class="line">struct Struct2 &#123;</span><br><span class="line">    double a; </span><br><span class="line">    int b;    </span><br><span class="line">    char c;   </span><br><span class="line">    short d;  </span><br><span class="line">&#125;str2;</span><br><span class="line"></span><br><span class="line">NSLog(@&quot;str1 &#x3D; %lu, str2-%lu&quot;,sizeof(str1),sizeof(str2));</span><br></pre></td></tr></table></figure>
-
-<p>输出的结果很明白的哈。<code>str1 = 24, str2-16</code></p>
-<p>我们分析一下：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">struct Struct1 &#123;</span><br><span class="line">    double a;   &#x2F;&#x2F; 8 (0-7)</span><br><span class="line">    char b;     &#x2F;&#x2F; 1 [8 1] (8)</span><br><span class="line">    int c;      &#x2F;&#x2F; 4 [9 10 11 12] 9不是4的整数倍(12 13 14 15)</span><br><span class="line">    short d;    &#x2F;&#x2F; 2 [16 17]</span><br><span class="line">&#125;str1;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 内部需要的大小为: 17</span><br><span class="line">&#x2F;&#x2F; 最大属性 : 8</span><br><span class="line">&#x2F;&#x2F; 结构体整数倍: 24</span><br><span class="line"></span><br><span class="line">struct Struct2 &#123;</span><br><span class="line">    double a;   &#x2F;&#x2F;8 (0-7)</span><br><span class="line">    int b;      &#x2F;&#x2F;4 (8 9 10 11)</span><br><span class="line">    char c;     &#x2F;&#x2F;1 (12)</span><br><span class="line">    short d;    &#x2F;&#x2F;2 (13 14) 13不是2的整数倍，从14开始(14 15)</span><br><span class="line">&#125;str2;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 内部需要的大小为: 15</span><br><span class="line">&#x2F;&#x2F; 最大属性 : 8</span><br><span class="line">&#x2F;&#x2F; 结构体整数倍: 16</span><br><span class="line">NSLog(@&quot;str1 &#x3D; %lu, str2-%lu&quot;,sizeof(str1),sizeof(str2));</span><br></pre></td></tr></table></figure>
+<p>这里当然有读取浮点数的方法<code>p/f [0x000000123]</code></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">(lldb) p&#x2F;f 0x4066800000000000</span><br><span class="line">(long) $5 &#x3D; 180</span><br></pre></td></tr></table></figure>
 
 <p>这就是内存补齐的内容</p>
-<h1 id="3-总结："><a href="#3-总结：" class="headerlink" title="3. 总结："></a>3. 总结：</h1><ul>
+<h1 id="4-总结："><a href="#4-总结：" class="headerlink" title="4. 总结："></a>4. 总结：</h1><ul>
+<li>calloc的流程。</li>
+<li>结构体的对齐规则。</li>
 <li>类对象的属性是8个字节对齐的，但是在内存空间是16个字节对齐。</li>
 <li>x/4gx的使用</li>
-<li>结构体的对齐规则。</li>
 </ul>
+<h1 id="引用"><a href="#引用" class="headerlink" title="引用"></a>引用</h1><p><a href="https://opensource.apple.com/tarballs/libmalloc/" target="_blank" rel="noopener">libmalloc源码</a><br><a href="https://opensource.apple.com/tarballs/" target="_blank" rel="noopener">苹果更多源码</a></p>
 
       
     </div>
@@ -1118,7 +1386,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block home" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/04/17/OC%E5%8E%9F%E7%90%86/alloc-init-new/">
+    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/04/17/OC%E5%8E%9F%E7%90%86/oc-1-alloc-init-new/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.jpg">
@@ -1132,7 +1400,7 @@
       <header class="post-header">
         <h1 class="post-title" itemprop="name headline">
           
-            <a href="/2021/04/17/OC%E5%8E%9F%E7%90%86/alloc-init-new/" class="post-title-link" itemprop="url">1.alloc、init、new</a>
+            <a href="/2021/04/17/OC%E5%8E%9F%E7%90%86/oc-1-alloc-init-new/" class="post-title-link" itemprop="url">OC-1-alloc、init、new</a>
         </h1>
 
         <div class="post-meta">
@@ -1149,7 +1417,7 @@
                   <i class="fa fa-calendar-check-o"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-05-10 16:35:30" itemprop="dateModified" datetime="2021-05-10T16:35:30+08:00">2021-05-10</time>
+                <time title="修改时间：2021-06-09 10:10:02" itemprop="dateModified" datetime="2021-06-09T10:10:02+08:00">2021-06-09</time>
               </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -1181,6 +1449,7 @@
 <p>前两个打印的都是当前对象的指针地址，而最后一个为啥会不一样？<br>首先需要明白p和&amp;p的区别：p是当前变量指向的地址。&amp;p是存放当前变量所在的地址。<br>这里第一个%p打印就是[Person alloc]生成的地址。第二个%p是存放的是指向【生成的对象】的地址。</p>
 <p>也就是当前alloc生成一个对象开辟了一块内存空间。p1、p2、p3分别开辟一块地址指向alloc开辟的空间。</p>
 <p><img src="oc-address.png" alt=""></p>
+<p>我们可以通过汇编模式或者符号断点查看源码所在的位置。这里不细说了，比较简单。最后定位的源码位置在<code>libobjc.A.dylib-&gt;objc_init</code>。</p>
 <h1 id="2-alloc的执行过程"><a href="#2-alloc的执行过程" class="headerlink" title="2. alloc的执行过程"></a>2. alloc的执行过程</h1><p>那我们接下来要看alloc是怎么执行的。需要看objc的源码。<a href="https://opensource.apple.com/tarballs/objc4/" target="_blank" rel="noopener">objc4源码</a>是可以直接下载的。我们这里用的是最新的818.2版本的。</p>
 <p>通过一系列风骚的操作，我们让源码可以运行起来。通过断点和源码我们分析一下alloc的执行过程。</p>
 <h2 id="2-1-objc-rootAlloc"><a href="#2-1-objc-rootAlloc" class="headerlink" title="2.1 _objc_rootAlloc"></a>2.1 _objc_rootAlloc</h2><p>在main.m中，创建一个对象，打上断点。</p>
@@ -1190,20 +1459,30 @@
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">+ (id)alloc &#123;</span><br><span class="line">    return _objc_rootAlloc(self);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">id _objc_rootAlloc(Class cls)</span><br><span class="line">&#123;</span><br><span class="line">    return callAlloc(cls, false&#x2F;*checkNil*&#x2F;, true&#x2F;*allocWithZone*&#x2F;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <h2 id="2-2-callAlloc"><a href="#2-2-callAlloc" class="headerlink" title="2.2 callAlloc"></a>2.2 callAlloc</h2><p>这里是核心代码。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">static ALWAYS_INLINE id</span><br><span class="line">callAlloc(Class cls, bool checkNil, bool allocWithZone&#x3D;false)</span><br><span class="line">&#123;</span><br><span class="line">#if __OBJC2__</span><br><span class="line">    if (slowpath(checkNil &amp;&amp; !cls)) return nil;</span><br><span class="line">    if (fastpath(!cls-&gt;ISA()-&gt;hasCustomAWZ())) &#123;</span><br><span class="line">        return _objc_rootAllocWithZone(cls, nil);   &#x2F;&#x2F; 1.</span><br><span class="line">    &#125;</span><br><span class="line">#endif</span><br><span class="line"></span><br><span class="line">    &#x2F;&#x2F; No shortcuts available.</span><br><span class="line">    if (allocWithZone) &#123;                            &#x2F;&#x2F; 2. </span><br><span class="line">        return ((id(*)(id, SEL, struct _NSZone *))objc_msgSend)(cls, @selector(allocWithZone:), nil);</span><br><span class="line">    &#125;</span><br><span class="line">    return ((id(*)(id, SEL))objc_msgSend)(cls, @selector(alloc)); &#x2F;&#x2F; 3.</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">static ALWAYS_INLINE id</span><br><span class="line">callAlloc(Class cls, bool checkNil, bool allocWithZone&#x3D;false)</span><br><span class="line">&#123;</span><br><span class="line">#if __OBJC2__ &#x2F;&#x2F; 是个宏定义</span><br><span class="line">    &#x2F;&#x2F; slowpath表示括号内的条件可能性教小</span><br><span class="line">    if (slowpath(checkNil &amp;&amp; !cls)) return nil;</span><br><span class="line">    &#x2F;&#x2F; fastpath表示括号内的条件可能性教大</span><br><span class="line">    &#x2F;&#x2F; 如果有自定义的allocWithZone（hasCustomAWZ）</span><br><span class="line">    if (fastpath(!cls-&gt;ISA()-&gt;hasCustomAWZ())) &#123;</span><br><span class="line">        return _objc_rootAllocWithZone(cls, nil);   &#x2F;&#x2F; 1.</span><br><span class="line">    &#125;</span><br><span class="line">#endif</span><br><span class="line"></span><br><span class="line">    &#x2F;&#x2F; No shortcuts available. 根据传进来的参数判断</span><br><span class="line">    if (allocWithZone) &#123;                            &#x2F;&#x2F; 2. </span><br><span class="line">        return ((id(*)(id, SEL, struct _NSZone *))objc_msgSend)(cls, @selector(allocWithZone:), nil);</span><br><span class="line">    &#125;</span><br><span class="line">    return ((id(*)(id, SEL))objc_msgSend)(cls, @selector(alloc)); &#x2F;&#x2F; 3.</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <ol>
 <li>该处内容是现阶段alloc执行的代码</li>
-<li>该处已经不执行了，allocWithZone已经在iOS8以后使用的范围教小。</li>
-<li>通过消息发送，执行alloc</li>
+<li>根据<code>callAlloc</code>调用传进来的参数判断，基本都会执行【1】。</li>
+<li>通过消息发送，执行<code>alloc</code>，这里有个很有意思的点，源码跑起来就能知道。</li>
 </ol>
 <h2 id="2-3-objc-rootAllocWithZone"><a href="#2-3-objc-rootAllocWithZone" class="headerlink" title="2.3 _objc_rootAllocWithZone"></a>2.3 _objc_rootAllocWithZone</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">id</span><br><span class="line">_objc_rootAllocWithZone(Class cls, malloc_zone_t *zone __unused)</span><br><span class="line">&#123;</span><br><span class="line">    &#x2F;&#x2F; allocWithZone under __OBJC2__ ignores the zone parameter</span><br><span class="line">    return _class_createInstanceFromZone(cls, 0, nil,</span><br><span class="line">                                         OBJECT_CONSTRUCT_CALL_BADALLOC);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <h2 id="2-4-class-createInstanceFromZone"><a href="#2-4-class-createInstanceFromZone" class="headerlink" title="2.4 _class_createInstanceFromZone"></a>2.4 _class_createInstanceFromZone</h2><p>这里是重中之重。alloc的流程都在这里完美的展示出来。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line">static ALWAYS_INLINE id</span><br><span class="line">_class_createInstanceFromZone(Class cls, size_t extraBytes, void *zone,</span><br><span class="line">                              int construct_flags &#x3D; OBJECT_CONSTRUCT_NONE,</span><br><span class="line">                              bool cxxConstruct &#x3D; true,</span><br><span class="line">                              size_t *outAllocatedSize &#x3D; nil)</span><br><span class="line">&#123;</span><br><span class="line">    ASSERT(cls-&gt;isRealized());</span><br><span class="line"></span><br><span class="line">    &#x2F;&#x2F; Read class&#39;s info bits all at once for performance</span><br><span class="line">    bool hasCxxCtor &#x3D; cxxConstruct &amp;&amp; cls-&gt;hasCxxCtor();</span><br><span class="line">    bool hasCxxDtor &#x3D; cls-&gt;hasCxxDtor();</span><br><span class="line">    bool fast &#x3D; cls-&gt;canAllocNonpointer();</span><br><span class="line">    size_t size;</span><br><span class="line"></span><br><span class="line">    &#x2F;&#x2F; 1. 既然要生成一个对象，首先要做的就是开辟空间，但是要开辟多少？就是这里说了算。</span><br><span class="line">    size &#x3D; cls-&gt;instanceSize(extraBytes);</span><br><span class="line">    if (outAllocatedSize) *outAllocatedSize &#x3D; size;</span><br><span class="line"></span><br><span class="line">    id obj;</span><br><span class="line">    if (zone) &#123;</span><br><span class="line">        obj &#x3D; (id)malloc_zone_calloc((malloc_zone_t *)zone, 1, size);</span><br><span class="line">    &#125; else &#123;</span><br><span class="line">        &#x2F;&#x2F; 2. 算出来需要多少空间，这里进行开辟</span><br><span class="line">        obj &#x3D; (id)calloc(1, size);</span><br><span class="line">    &#125;</span><br><span class="line">    if (slowpath(!obj)) &#123;</span><br><span class="line">        if (construct_flags &amp; OBJECT_CONSTRUCT_CALL_BADALLOC) &#123;</span><br><span class="line">            return _objc_callBadAllocHandler(cls);</span><br><span class="line">        &#125;</span><br><span class="line">        return nil;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    if (!zone &amp;&amp; fast) &#123;</span><br><span class="line">        &#x2F;&#x2F; 3. 空间有了，这里进行对象关联</span><br><span class="line">        obj-&gt;initInstanceIsa(cls, hasCxxDtor);</span><br><span class="line">    &#125; else &#123;</span><br><span class="line">        &#x2F;&#x2F; Use raw pointer isa on the assumption that they might be</span><br><span class="line">        &#x2F;&#x2F; doing something weird with the zone or RR.</span><br><span class="line">        obj-&gt;initIsa(cls);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    if (fastpath(!hasCxxCtor)) &#123;</span><br><span class="line">        return obj;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    construct_flags |&#x3D; OBJECT_CONSTRUCT_FREE_ONFAILURE;</span><br><span class="line">    return object_cxxConstructFromClass(obj, cls, construct_flags);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line">static ALWAYS_INLINE id</span><br><span class="line">_class_createInstanceFromZone(Class cls, size_t extraBytes, void *zone,</span><br><span class="line">                              int construct_flags &#x3D; OBJECT_CONSTRUCT_NONE,</span><br><span class="line">                              bool cxxConstruct &#x3D; true,</span><br><span class="line">                              size_t *outAllocatedSize &#x3D; nil)</span><br><span class="line">&#123;</span><br><span class="line">    ASSERT(cls-&gt;isRealized());</span><br><span class="line"></span><br><span class="line">    &#x2F;&#x2F; Read class&#39;s info bits all at once for performance</span><br><span class="line">    bool hasCxxCtor &#x3D; cxxConstruct &amp;&amp; cls-&gt;hasCxxCtor();</span><br><span class="line">    bool hasCxxDtor &#x3D; cls-&gt;hasCxxDtor();</span><br><span class="line">    bool fast &#x3D; cls-&gt;canAllocNonpointer();</span><br><span class="line">    size_t size;</span><br><span class="line"></span><br><span class="line">    &#x2F;&#x2F; 1. 既然要生成一个对象，首先要做的就是开辟空间，但是要开辟多少？</span><br><span class="line">    &#x2F;&#x2F; 由对象的ivars决定。在iOS中，字节是8自己对齐，而内存是16字节对齐，所以小于16字节会补齐</span><br><span class="line">    size &#x3D; cls-&gt;instanceSize(extraBytes);</span><br><span class="line">    if (outAllocatedSize) *outAllocatedSize &#x3D; size;</span><br><span class="line"></span><br><span class="line">    id obj;</span><br><span class="line">    if (zone) &#123;</span><br><span class="line">        obj &#x3D; (id)malloc_zone_calloc((malloc_zone_t *)zone, 1, size);</span><br><span class="line">    &#125; else &#123;</span><br><span class="line">        &#x2F;&#x2F; 2. 算出来需要多少空间，这里进行开辟</span><br><span class="line">        obj &#x3D; (id)calloc(1, size);</span><br><span class="line">    &#125;</span><br><span class="line">    &#x2F;&#x2F; 极少数情况下，obj会创建失败</span><br><span class="line">    if (slowpath(!obj)) &#123;</span><br><span class="line">        if (construct_flags &amp; OBJECT_CONSTRUCT_CALL_BADALLOC) &#123;</span><br><span class="line">            return _objc_callBadAllocHandler(cls);</span><br><span class="line">        &#125;</span><br><span class="line">        return nil;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    if (!zone &amp;&amp; fast) &#123;</span><br><span class="line">        &#x2F;&#x2F; 3. 空间有了，这里进行对象关联</span><br><span class="line">        obj-&gt;initInstanceIsa(cls, hasCxxDtor);</span><br><span class="line">    &#125; else &#123;</span><br><span class="line">        &#x2F;&#x2F; Use raw pointer isa on the assumption that they might be</span><br><span class="line">        &#x2F;&#x2F; doing something weird with the zone or RR.</span><br><span class="line">        obj-&gt;initIsa(cls);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    if (fastpath(!hasCxxCtor)) &#123;</span><br><span class="line">        return obj;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    construct_flags |&#x3D; OBJECT_CONSTRUCT_FREE_ONFAILURE;</span><br><span class="line">    return object_cxxConstructFromClass(obj, cls, construct_flags);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
-<h3 id="2-4-1-cls-gt-instanceSize"><a href="#2-4-1-cls-gt-instanceSize" class="headerlink" title="2.4.1 cls-&gt;instanceSize"></a>2.4.1 cls-&gt;instanceSize</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">inline size_t instanceSize(size_t extraBytes) const &#123;</span><br><span class="line">    if (fastpath(cache.hasFastInstanceSize(extraBytes))) &#123;</span><br><span class="line">        return cache.fastInstanceSize(extraBytes);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    size_t size &#x3D; alignedInstanceSize() + extraBytes;</span><br><span class="line">    &#x2F;&#x2F; CF requires all objects be at least 16 bytes.</span><br><span class="line">    if (size &lt; 16) size &#x3D; 16;</span><br><span class="line">    return size;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="2-4-1-cls-gt-instanceSize"><a href="#2-4-1-cls-gt-instanceSize" class="headerlink" title="2.4.1 cls-&gt;instanceSize"></a>2.4.1 cls-&gt;instanceSize</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">inline size_t instanceSize(size_t extraBytes) const &#123;</span><br><span class="line">    &#x2F;&#x2F; 有缓存的情况下</span><br><span class="line">    if (fastpath(cache.hasFastInstanceSize(extraBytes))) &#123;</span><br><span class="line">        return cache.fastInstanceSize(extraBytes);</span><br><span class="line">    &#125;</span><br><span class="line">    &#x2F;&#x2F; 新开辟</span><br><span class="line">    size_t size &#x3D; alignedInstanceSize() + extraBytes;</span><br><span class="line">    &#x2F;&#x2F; CF requires all objects be at least 16 bytes.</span><br><span class="line">    if (size &lt; 16) size &#x3D; 16;</span><br><span class="line">    return size;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
+
+<p>如果有缓存的情况下，则会执行fastInstanceSize。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">size_t fastInstanceSize(size_t extra) const</span><br><span class="line">&#123;</span><br><span class="line">    ASSERT(hasFastInstanceSize(extra));</span><br><span class="line"></span><br><span class="line">    if (__builtin_constant_p(extra) &amp;&amp; extra &#x3D;&#x3D; 0) &#123;</span><br><span class="line">        return _flags &amp; FAST_CACHE_ALLOC_MASK16;</span><br><span class="line">    &#125; else &#123;</span><br><span class="line">        size_t size &#x3D; _flags &amp; FAST_CACHE_ALLOC_MASK;</span><br><span class="line">        &#x2F;&#x2F; remove the FAST_CACHE_ALLOC_DELTA16 that was added</span><br><span class="line">        &#x2F;&#x2F; by setFastInstanceSize</span><br><span class="line">        &#x2F;&#x2F; 内存对齐是16字节</span><br><span class="line">        return align16(size + extra - FAST_CACHE_ALLOC_DELTA16);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 新开辟空间时计算对象所在空间</span><br><span class="line">&#x2F;&#x2F; Class&#39;s ivar size rounded up to a pointer-size boundary.</span><br><span class="line">uint32_t alignedInstanceSize() const &#123;</span><br><span class="line">    return word_align(unalignedInstanceSize());</span><br><span class="line">&#125;</span><br><span class="line">&#x2F;&#x2F; 8字节对齐</span><br><span class="line">static inline size_t word_align(size_t x) &#123;</span><br><span class="line">    &#x2F;&#x2F; 通过算法得到8字节的倍数</span><br><span class="line">    return (x + WORD_MASK) &amp; ~WORD_MASK;</span><br><span class="line">&#125;</span><br><span class="line">&#x2F;&#x2F; 16字节对齐 fastInstanceSize</span><br><span class="line">static inline size_t align16(size_t x) &#123;</span><br><span class="line">    &#x2F;&#x2F; 通过算法得到16字节的倍数</span><br><span class="line">    return (x + size_t(15)) &amp; ~size_t(15);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里举例说明一下算法：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; WORD_MASK &#x3D; 7</span><br><span class="line">(x + 7) &amp; ~7;</span><br><span class="line">&#x2F;&#x2F; x &#x3D; 2, x + 7 &#x3D; 9   -&gt; 0000 1001  ⬇️   x&#x3D;10 17 &#x3D; 0001 0001</span><br><span class="line">&#x2F;&#x2F; 7 &#x3D; 0000 0111 -&gt; !7 &#x3D; 1111 1000  ⬇️        !7 &#x3D; 1111 1000</span><br><span class="line">&#x2F;&#x2F;              9 &amp; !7 &#x3D; 0000 1000 &#x3D; 8  (17 &amp; !7 &#x3D; 0001 0000 &#x3D; 16)</span><br></pre></td></tr></table></figure>
+
+<p>所以：<code>word_align</code>计算出来的都是8的倍数。<br>     <code>align16</code>计算出来的都是16的倍数。</p>
 <p>这里需要注意的是在ARM64下，内存开辟都是16个字节进行对齐的。所以计算的大小的都是16的倍数。</p>
 <h3 id="2-4-2-calloc"><a href="#2-4-2-calloc" class="headerlink" title="2.4.2 calloc"></a>2.4.2 calloc</h3><p>calloc申请开辟内存，返回地址指针。</p>
 <h3 id="2-4-3-obj-gt-initInstanceIsa"><a href="#2-4-3-obj-gt-initInstanceIsa" class="headerlink" title="2.4.3 obj-&gt;initInstanceIsa"></a>2.4.3 obj-&gt;initInstanceIsa</h3><p>生成的对象与class进行关联。通过isa指针。（isa之后会有说明，每一个类都有一个isa指针）。</p>
@@ -1211,17 +1490,18 @@
 <p>这个图很好的说明了alloc的流程。</p>
 <h1 id="3-init"><a href="#3-init" class="headerlink" title="3. init"></a>3. init</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">- (id)init &#123;</span><br><span class="line">    return _objc_rootInit(self);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">id</span><br><span class="line">_objc_rootInit(id obj)</span><br><span class="line">&#123;</span><br><span class="line">    &#x2F;&#x2F; In practice, it will be hard to rely on this function.</span><br><span class="line">    &#x2F;&#x2F; Many classes do not properly chain -init calls.</span><br><span class="line">    return obj;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
-<p>init其实是工厂方法，从上面的代码可以看到，只是<code>return self</code>。这里有一个重要的点，就是大部分的实现都会交给子类去重新，自定义init方法。</p>
+<p>init其实是工厂方法，从上面的代码可以看到，只是<code>return self</code>。这里有一个重要的点，就是大部分的实现都会交给子类去重新自定义init方法。</p>
 <h1 id="4-new"><a href="#4-new" class="headerlink" title="4. new"></a>4. new</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">+ (id)new &#123;</span><br><span class="line">    return [callAlloc(self, false&#x2F;*checkNil*&#x2F;) init];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>我们看到new的实现就是执行了，callAlloc()，然后执行了init操作。与实际上的<code>[[Person alloc] init]</code>并没有什么区别。</p>
 <p>但是看到有一些博客上说，还是有区别，因为init被重写之后，调用new可能会造成少些东西。这里不能苟同哈，所有的方法调用，在OC中都是objc_msgSend，会去寻找方法列表的。所以不会存在什么不同。</p>
-<h1 id="5-扩展知识"><a href="#5-扩展知识" class="headerlink" title="5. 扩展知识"></a>5. 扩展知识</h1><p>我们已经知道了，本身写一个Person类，需要开辟16个字节的空间，那需要申请多大内存空间是由什么因素决定的？<br>我们可以试一下分别添加一个属性，两个属性，试一下。自己动手试一下哈，看看2.4.1小结处返回的size是多少。这里不细说了哦~</p>
+<h1 id="5-扩展知识"><a href="#5-扩展知识" class="headerlink" title="5. 扩展知识"></a>5. 扩展知识</h1><p>我们已经知道了，本身写一个Person类，需要开辟16个字节的空间，那需要申请多大内存空间是由什么因素决定的？<br>我们可以试一下分别添加一个属性，两个属性，试一下。自己动手试一下哈，看看2.4.1小结处返回的size是多少。其申请内存的大小其实是成员变量说了算。</p>
 <p>我这里添加了两个NSString属性，分别赋值A和B。</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">(lldb) po p</span><br><span class="line">&lt;Person: 0x600002f86cc0&gt;</span><br><span class="line">(lldb) x p</span><br><span class="line">0x600002f86cc0: 60 76 e3 06 01 00 00 00 40 20 e3 06 01 00 00 00  &#96;v......@ ......</span><br><span class="line">0x600002f86cd0: 60 20 e3 06 01 00 00 00 00 00 00 00 00 00 00 00  &#96; ..............</span><br><span class="line"></span><br><span class="line">(lldb) x&#x2F;4gx p</span><br><span class="line">0x600002f86cc0: 0x0000000106e37660 0x0000000106e32040</span><br><span class="line">0x600002f86cd0: 0x0000000106e32060 0x0000000000000000</span><br><span class="line">(lldb) po 0x0000000106e37660    &#x2F;&#x2F; isa指针，指向class</span><br><span class="line">Person</span><br><span class="line">(lldb) po 0x0000000106e32040</span><br><span class="line">A</span><br><span class="line">(lldb) po 0x0000000106e32060</span><br><span class="line">B</span><br></pre></td></tr></table></figure>
 
-<p>通过<code>x p</code>命令我们可以打印出<code>p</code>的内存地址。从<code>0x600002f86cc0 --- 0x600002f86cd0</code>公占用0x20个自己的空间，也就是32个字节。</p>
-<h1 id="6-真正的alloc流程"><a href="#6-真正的alloc流程" class="headerlink" title="6. 真正的alloc流程"></a>6. 真正的alloc流程</h1><p>当我们执行<code>[Person alloc]</code>的时候，系统内部会通过llvm的函数方法把alloc 指向到<code>objc_alloc</code>。</p>
+<p>通过<code>x p</code>命令我们可以打印出<code>p</code>的内存地址。在源码的运行过程中，断点到size计算那里，打印出来size的大小是<code>32</code>个字节。也就是会空8个字节。</p>
+<p>如果声明了4个bool值，则4个bool值则会依次放在内存中，例如：0x0000000001010101，这个就涉及到字节的对齐以及iOS系统对属性的重排（内存优化）。</p>
+<h1 id="6-真正的alloc流程"><a href="#6-真正的alloc流程" class="headerlink" title="6. 真正的alloc流程"></a>6. 真正的alloc流程</h1><p>当我们执行<code>[Person alloc]</code>的时候，直接吧断点放在<code>callAlloc-&gt;objc_msgSend</code>，则会先执行消息转发。原因是系统内部会通过llvm的函数方法把<code>alloc</code>指向到<code>objc_alloc</code>。</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; Calls [cls alloc].</span><br><span class="line">id</span><br><span class="line">objc_alloc(Class cls)</span><br><span class="line">&#123;</span><br><span class="line">    return callAlloc(cls, true&#x2F;*checkNil*&#x2F;, false&#x2F;*allocWithZone*&#x2F;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>这里先执行一次<code>callAlloc(cls, true, false)</code>，注意这里的参数。然后执行到calAlloc中。</p>
@@ -1229,7 +1509,7 @@
 
 <p>通过运行，我们发现会先执行第3个return。所执行的还是<code>alloc</code>，这时候执行的才是真正的alloc。然后就可以顺着第2节的内容继续了。</p>
 <p>如图，是完整的alloc会执行两次的流程图：</p>
-<p><img src="oc-alloc-2.png" alt=""></p>
+<p><img src="oc-alloc-2.jpg" alt=""></p>
 <h1 id="总结："><a href="#总结：" class="headerlink" title="总结："></a>总结：</h1><ul>
 <li>alloc的流程</li>
 <li>alloc的两次执行过程</li>
@@ -1756,104 +2036,6 @@
   
   
 
-        
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block home" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/04/11/%E9%80%86%E5%90%91/nx-1-iPhone%E8%B6%8A%E7%8B%B1/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.jpg">
-      <meta itemprop="name" content="不会飞的小白">
-      <meta itemprop="description" content="一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="不会飞的小白">
-    </span>
-      <header class="post-header">
-        <h1 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/04/11/%E9%80%86%E5%90%91/nx-1-iPhone%E8%B6%8A%E7%8B%B1/" class="post-title-link" itemprop="url">iPhone越狱</a>
-        </h1>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-04-11 11:30:03" itemprop="dateCreated datePublished" datetime="2021-04-11T11:30:03+08:00">2021-04-11</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="fa fa-calendar-check-o"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-05-31 10:29:59" itemprop="dateModified" datetime="2021-05-31T10:29:59+08:00">2021-05-31</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E9%80%86%E5%90%91/" itemprop="url" rel="index"><span itemprop="name">逆向</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="1-准备工作"><a href="#1-准备工作" class="headerlink" title="1. 准备工作"></a>1. 准备工作</h1><ol>
-<li>我们需要一台iPhone手机，根据自己的条件，要求系统是iOS11.0 - 14.3，写这篇博客时所能处理的越狱系统是这个，过期之后请自行查找资料。</li>
-<li>越狱的网站：<a href="https://unc0ver.dev/" target="_blank" rel="noopener">https://unc0ver.dev/</a>，下载安装包（ipa文件），可以按照对应的步奏进行操作，本篇所说的有另外一种，使用重签名的机制，比较简单。</li>
-</ol>
-<h1 id="2-开始越狱"><a href="#2-开始越狱" class="headerlink" title="2. 开始越狱"></a>2. 开始越狱</h1><ol>
-<li><p>打开我们的工程文件，请自行下载。</p>
-</li>
-<li><p>在”Signing &amp; Capabilities” 下，修改”Bundle Identifier”为自己的，修改”Team” 使用”personal team”。</p>
-</li>
-<li><p>在”Build Phases” - “Run Script”下，先将script运行代码注释掉。</p>
- <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 重签名机制的脚本文件</span><br><span class="line">#.&#x2F;appSign.sh</span><br></pre></td></tr></table></figure></li>
-<li><p>运行当前的空工程文件到手机上。</p>
-</li>
-<li><p>运行完成之后，在回到”Build Phases” - “Run Script”下，将注释打开，重新运行。</p>
-</li>
-<li><p>“unc0ver”这个APP已经出现在手机上，点击APP，直接开始”Jailbreak”。手机重启几次之后，就可以了。</p>
-</li>
-<li><p>在”Setting”中，可以选择自己想使用的选项。其中 “Restore RootFS”可以回到未越狱状态。</p>
-</li>
-</ol>
-<h1 id="3-为什么使用unc0ver"><a href="#3-为什么使用unc0ver" class="headerlink" title="3. 为什么使用unc0ver"></a>3. 为什么使用unc0ver</h1><ol>
-<li>它可以在越狱之后，通过简单的操作回到当初未越狱的状态，对系统侵扰是最低的。</li>
-<li>这个是一个安装在手机上的APP，可以随时删除。</li>
-<li>开发者更新比较及时。写本篇时，iOS系统可更新的版本是14.4.2，而unc0ver已经支持到14.3版本了。</li>
-</ol>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
   </div>
 
   
@@ -1926,7 +2108,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">36</span>
+          <span class="site-state-item-count">37</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>

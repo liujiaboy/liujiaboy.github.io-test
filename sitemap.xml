@@ -2,9 +2,30 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
+    <loc>http://liujiaboy.github.io/2021/04/17/OC%E5%8E%9F%E7%90%86/oc-2-%E5%86%85%E5%AD%98%E5%AF%B9%E9%BD%90/</loc>
+    
+    <lastmod>2021-06-09T03:42:34.059Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://liujiaboy.github.io/2021/04/17/OC%E5%8E%9F%E7%90%86/oc-1-alloc-init-new/</loc>
+    
+    <lastmod>2021-06-09T02:10:02.644Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://liujiaboy.github.io/2021/06/04/%E9%80%86%E5%90%91/nx-6-dyld/</loc>
+    
+    <lastmod>2021-06-04T03:45:14.761Z</lastmod>
+    
+  </url>
+  
+  <url>
     <loc>http://liujiaboy.github.io/2021/06/02/%E9%80%86%E5%90%91/nx-5-MachO/</loc>
     
-    <lastmod>2021-06-02T11:13:00.399Z</lastmod>
+    <lastmod>2021-06-04T03:44:46.086Z</lastmod>
     
   </url>
   
@@ -212,23 +233,9 @@
   </url>
   
   <url>
-    <loc>http://liujiaboy.github.io/2021/04/17/OC%E5%8E%9F%E7%90%86/%E5%86%85%E5%AD%98%E5%AF%B9%E9%BD%90/</loc>
-    
-    <lastmod>2021-05-10T08:35:30.515Z</lastmod>
-    
-  </url>
-  
-  <url>
     <loc>http://liujiaboy.github.io/2021/04/18/OC%E5%8E%9F%E7%90%86/%E5%AF%B9%E8%B1%A1%E7%9A%84%E6%9C%AC%E8%B4%A8/</loc>
     
     <lastmod>2021-05-10T08:35:30.515Z</lastmod>
-    
-  </url>
-  
-  <url>
-    <loc>http://liujiaboy.github.io/2021/04/17/OC%E5%8E%9F%E7%90%86/alloc-init-new/</loc>
-    
-    <lastmod>2021-05-10T08:35:30.513Z</lastmod>
     
   </url>
   

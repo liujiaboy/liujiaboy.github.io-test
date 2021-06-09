@@ -171,6 +171,104 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block home" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/04/11/%E9%80%86%E5%90%91/nx-1-iPhone%E8%B6%8A%E7%8B%B1/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="不会飞的小白">
+      <meta itemprop="description" content="一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="不会飞的小白">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          
+            <a href="/2021/04/11/%E9%80%86%E5%90%91/nx-1-iPhone%E8%B6%8A%E7%8B%B1/" class="post-title-link" itemprop="url">iPhone越狱</a>
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-04-11 11:30:03" itemprop="dateCreated datePublished" datetime="2021-04-11T11:30:03+08:00">2021-04-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-05-31 10:29:59" itemprop="dateModified" datetime="2021-05-31T10:29:59+08:00">2021-05-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E9%80%86%E5%90%91/" itemprop="url" rel="index"><span itemprop="name">逆向</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h1 id="1-准备工作"><a href="#1-准备工作" class="headerlink" title="1. 准备工作"></a>1. 准备工作</h1><ol>
+<li>我们需要一台iPhone手机，根据自己的条件，要求系统是iOS11.0 - 14.3，写这篇博客时所能处理的越狱系统是这个，过期之后请自行查找资料。</li>
+<li>越狱的网站：<a href="https://unc0ver.dev/" target="_blank" rel="noopener">https://unc0ver.dev/</a>，下载安装包（ipa文件），可以按照对应的步奏进行操作，本篇所说的有另外一种，使用重签名的机制，比较简单。</li>
+</ol>
+<h1 id="2-开始越狱"><a href="#2-开始越狱" class="headerlink" title="2. 开始越狱"></a>2. 开始越狱</h1><ol>
+<li><p>打开我们的工程文件，请自行下载。</p>
+</li>
+<li><p>在”Signing &amp; Capabilities” 下，修改”Bundle Identifier”为自己的，修改”Team” 使用”personal team”。</p>
+</li>
+<li><p>在”Build Phases” - “Run Script”下，先将script运行代码注释掉。</p>
+ <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 重签名机制的脚本文件</span><br><span class="line">#.&#x2F;appSign.sh</span><br></pre></td></tr></table></figure></li>
+<li><p>运行当前的空工程文件到手机上。</p>
+</li>
+<li><p>运行完成之后，在回到”Build Phases” - “Run Script”下，将注释打开，重新运行。</p>
+</li>
+<li><p>“unc0ver”这个APP已经出现在手机上，点击APP，直接开始”Jailbreak”。手机重启几次之后，就可以了。</p>
+</li>
+<li><p>在”Setting”中，可以选择自己想使用的选项。其中 “Restore RootFS”可以回到未越狱状态。</p>
+</li>
+</ol>
+<h1 id="3-为什么使用unc0ver"><a href="#3-为什么使用unc0ver" class="headerlink" title="3. 为什么使用unc0ver"></a>3. 为什么使用unc0ver</h1><ol>
+<li>它可以在越狱之后，通过简单的操作回到当初未越狱的状态，对系统侵扰是最低的。</li>
+<li>这个是一个安装在手机上的APP，可以随时删除。</li>
+<li>开发者更新比较及时。写本篇时，iOS系统可更新的版本是14.4.2，而unc0ver已经支持到14.3版本了。</li>
+</ol>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+        
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block home" lang="zh-CN">
     <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/04/10/%E9%80%86%E5%90%91/ARM%E6%B1%87%E7%BC%96-1/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1223,7 +1321,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">36</span>
+          <span class="site-state-item-count">37</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>

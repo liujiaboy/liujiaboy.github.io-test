@@ -171,6 +171,119 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block home" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/05/20/%E9%80%86%E5%90%91/nx-2-%E5%BA%94%E7%94%A8%E7%AD%BE%E5%90%8D/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="不会飞的小白">
+      <meta itemprop="description" content="一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="不会飞的小白">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          
+            <a href="/2021/05/20/%E9%80%86%E5%90%91/nx-2-%E5%BA%94%E7%94%A8%E7%AD%BE%E5%90%8D/" class="post-title-link" itemprop="url">应用签名</a>
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-05-20 11:19:01" itemprop="dateCreated datePublished" datetime="2021-05-20T11:19:01+08:00">2021-05-20</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-05-31 10:29:59" itemprop="dateModified" datetime="2021-05-31T10:29:59+08:00">2021-05-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E9%80%86%E5%90%91/" itemprop="url" rel="index"><span itemprop="name">逆向</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h1 id="代码签名"><a href="#代码签名" class="headerlink" title="代码签名"></a>代码签名</h1><p>代码签名是对<code>可执行文件或脚本</code>进行<code>数字签名</code>，用来确认软件在签名后未被修改或损坏的措施。和数字签名原理一样,只不过签名的数据是代码。</p>
+<h2 id="简单的代码签名"><a href="#简单的代码签名" class="headerlink" title="简单的代码签名"></a>简单的代码签名</h2><p>在iOS出来之前，以前的主流操作系统(Mac/Windows)软件随便从哪里下载都能运行，系统安全存在隐患，盗版软件、病毒入侵、静默安装等等，那么苹果希望解决这样的问题，要保证每一个安装到 iOS 上的 APP 都是经过苹果官方允许的，为了保证都是经过苹果官方允许的，就有了<code>代码签名</code>。</p>
+<p>如果要实现验证，其实最简单的方式就是通过苹果官方生成<code>非对称加密的一对公私钥</code>,在iOS的系统中内置一个<code>公钥</code>，<code>私钥</code>由苹果后台保存，我们传APP到AppStore时，苹果后台用私钥对APP数据进行签名，iOS系统下载这个APP后，用公钥验证这个签名，若签名正确，这个APP肯定是由苹果后台认证的，并且没有被修改过，也就达到了苹果的需求：保证安装的每一个APP都是经过苹果官方允许的。</p>
+<p>如果我们iOS设备安装APP只从App Store这一个入口这件事就简单解决了，没有任何复杂的东西，一个数字签名搞定。</p>
+<p>但是实际上iOS安装APP还有其他渠道。比如对于我们开发者而言,我们是需要在开发APP时直接真机调试，而且苹果还开放了企业内部分发的渠道，企业证书签名的APP也是需要顺利安装的。</p>
+<p>苹果需要开放这些方式安装APP,这些需求就无法通过简单的代码签名来办到了。</p>
+<h1 id="双重签名"><a href="#双重签名" class="headerlink" title="双重签名"></a>双重签名</h1><p>为了解决上述的问题，苹果采用了双层签名。</p>
+<p>首先我们需要两个设备，一个iOS系统的设备，一个Mac系统的设备。iOS开发是在Mac环境下进行的，这也就是双层签名的基础。</p>
+<ol>
+<li>在Mac上生成非对称加密算法的公钥、私钥。我们称之为公钥M、私钥M。M=Mac</li>
+<li>苹果自己有一套公钥、私钥，与简单签名中的逻辑一致，私钥在苹果后台，公钥在每一个iOS系统的设备中，称之为公钥A，私钥A，A=Apple</li>
+<li>公钥M打包开发者的信息，上传到苹果后台（通过CSR请求文件申请证书）。苹果后台用私钥A去签名公钥M，得到一份包含了公钥M的Hash值（签名）以及开发者信息等。这个东西就是证书。然后下载到本地</li>
+<li>在开发时，编译完一个APP，用本地的私钥M（p12文件），对这个APP进行签名，其实就是对Mach-O文件签名，同时步奏3得到的证书也一同打包，生成.ipa文件。</li>
+<li>这个ipa文件也就是我们的APP，安装到手机时，手机上有公钥A，通过公钥A解密步奏3得到的证书，可以拿到公钥M。</li>
+<li>然后再用公钥M验证步奏4对APP的签名。如果签名验证通过，则APP就是合法的。</li>
+</ol>
+<p>但是这样还是会有问题，我们只要有了证书，任何设备都可以安装，而且没有设备数限制。</p>
+<h1 id="描述文件"><a href="#描述文件" class="headerlink" title="描述文件"></a>描述文件</h1><p>苹果为了解决上面的问题，就又加了限制，引入了描述文件。</p>
+<ol>
+<li>对开发者来说，只有添加了udid的设备才能安装。</li>
+<li>只能安装某一个，或者某一类的APP。（指定了bundle id，或者是通配类型：com.apple.*）</li>
+<li>还指定了APP的权限(Entitlements)，比如：iCloud、Push、后台运行等等权限，由xcode生成。</li>
+</ol>
+<p>苹果把这些内容，放在一个文件中，叫做描述文件（Provisioning Profile）。后缀名为mobileprovision</p>
+<p>描述文件一般包括三样东西：证书、App ID、设备信息、权限信息。当我们在真机运行或者打包一个项目的时候，证书用来证明我们程序的安全性和合法性。</p>
+<p>所以我们再来看看真正定双重签名。</p>
+<h1 id="真正的双重签名、验证"><a href="#真正的双重签名、验证" class="headerlink" title="真正的双重签名、验证"></a>真正的双重签名、验证</h1><ol>
+<li>在Mac上生成非对称加密算法的公钥、私钥。我们称之为公钥M、私钥M。M=Mac</li>
+<li>苹果自己有一套公钥、私钥，与简单签名中的逻辑一致，私钥在苹果后台，公钥在每一个iOS系统的设备中，称之为公钥A，私钥A，A=Apple</li>
+<li>公钥M打包开发者的信息，上传到苹果后台（通过CSR请求文件申请证书）。苹果后台用私钥A去签名公钥M，得到一份包含了公钥M的Hash值（签名）以及开发者信息，这个东西就是证书（CRT。可以下载到本地，如果多开发者协同开发，需要把证书的密钥导出来，生成p12文件）。同时打包bundle id，设备的udid、APP权限等和证书一起生成描述文件。然后下载到本地。（多开发者协同开发，需要把对应的p12文件、描述文件一起给开发人员）</li>
+<li>在开发时，选择对应的描述文件，用本地的私钥M（p12文件），对Mach-O文件签名，同时步奏3得到的描述文件也一同打包，生成.ipa文件。<br> 权限文件为<code>embedded.mobileprovision</code>(由xcode生成)，也在ipa内。包含了设备udid的数组、权限数组、app id、有效时间等信息</li>
+<li>这个ipa文件也就是我们的APP，安装到手机时，通过公钥A解密步奏3得到的证书，可以拿到公钥M。</li>
+<li>然后再用公钥M验证步奏4对APP的签名。如果签名验证通过，则APP就是合法的。</li>
+</ol>
+<p><img src="%E5%8F%8C%E9%87%8D%E7%AD%BE%E5%90%8D-%E9%AA%8C%E8%AF%81.jpg" alt=""></p>
+<h1 id="总结："><a href="#总结：" class="headerlink" title="总结："></a>总结：</h1><ul>
+<li>苹果的双重签名验证流程</li>
+<li>生成的证书，需要导出p12文件和描述文件一起发给其他开发人员。</li>
+</ul>
+<p>关于证书相关的配置这里推荐一篇来自知乎的文章，<a href="https://zhuanlan.zhihu.com/p/69162456" target="_blank" rel="noopener">iOS证书配置</a>。写的比较详细了。</p>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+        
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block home" lang="zh-CN">
     <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/05/19/OC%E5%8E%9F%E7%90%86/%E9%94%81%E7%9A%84%E5%8E%9F%E7%90%86-2/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1845,207 +1958,6 @@
   
   
 
-        
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block home" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://liujiaboy.github.io/2021/05/08/OC%E5%8E%9F%E7%90%86/KVO%E5%8E%9F%E7%90%86/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.jpg">
-      <meta itemprop="name" content="不会飞的小白">
-      <meta itemprop="description" content="一只iOS程序猿，会陆陆续续的把之前的一些总结搬到这里。">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="不会飞的小白">
-    </span>
-      <header class="post-header">
-        <h1 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/05/08/OC%E5%8E%9F%E7%90%86/KVO%E5%8E%9F%E7%90%86/" class="post-title-link" itemprop="url">KVO原理</a>
-        </h1>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-05-08 08:39:59" itemprop="dateCreated datePublished" datetime="2021-05-08T08:39:59+08:00">2021-05-08</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="fa fa-calendar-check-o"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-05-10 19:35:47" itemprop="dateModified" datetime="2021-05-10T19:35:47+08:00">2021-05-10</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/OC%E5%8E%9F%E7%90%86/" itemprop="url" rel="index"><span itemprop="name">OC原理</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="KVO"><a href="#KVO" class="headerlink" title="KVO"></a>KVO</h1><p>官方文档：<a href="https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/KeyValueObserving/KeyValueObserving.html#//apple_ref/doc/uid/10000177i" target="_blank" rel="noopener">Key-Value Observing</a></p>
-<blockquote>
-<p><b>Important:</b> In order to understand key-value observing, you must first understand key-value coding.</p>
-</blockquote>
-<p>在官方的文档中，有这么一句话，要理解KVO，必须先知道KVC。</p>
-<h1 id="KVO的基本使用"><a href="#KVO的基本使用" class="headerlink" title="KVO的基本使用"></a>KVO的基本使用</h1><p>下面创建一个<code>Person</code>类，并添加几个属性。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">static void *PersonNameContext &#x3D; &amp;PersonNameContext;</span><br><span class="line"></span><br><span class="line">@interface Person : NSObject</span><br><span class="line"></span><br><span class="line">@property (nonatomic, copy) NSString *name;</span><br><span class="line">@property (nonatomic, copy) NSString *nickName;</span><br><span class="line">@property (nonatomic, copy) NSString *fullName;</span><br><span class="line">@property (nonatomic, strong) NSMutableArray *mArray;</span><br><span class="line"></span><br><span class="line">@end</span><br></pre></td></tr></table></figure>
-
-<h2 id="1-简单使用"><a href="#1-简单使用" class="headerlink" title="1. 简单使用"></a>1. 简单使用</h2><p>KVO对实例变量是不起作用的。可以试一下，即使添加了set方法、添加了<code>didChangeValueForKey:</code>方法也不行，即使使用了KVC也监听不到。正常使用来说，还是针对属性。</p>
-<h3 id="1-1-添加监听"><a href="#1-1-添加监听" class="headerlink" title="1.1 添加监听"></a>1.1 添加监听</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">- (void)addObserver:(NSObject *)observer forKeyPath:(NSString *)keyPath options:(NSKeyValueObservingOptions)options context:(nullable void *)context;</span><br></pre></td></tr></table></figure>
-
-<p>被监听者进行调用，添加一个监听对象，监听某一个属性的变化。context是上下文，在官方文档中，推荐使用<code>context</code>，不使用这个，也可以使用<code>NULL</code>代替。例如：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 当前对象监听person对象的name属性的变化</span><br><span class="line">[self.person addObserver:self forKeyPath:@&quot;name&quot; options:(NSKeyValueObservingOptionNew) context:NULL];</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F;[self.person addObserver:self forKeyPath:@&quot;name&quot; options:(NSKeyValueObservingOptionNew) context:PersonNameContext]</span><br></pre></td></tr></table></figure>
-
-<h3 id="1-2-监听变化"><a href="#1-2-监听变化" class="headerlink" title="1.2 监听变化"></a>1.2 监听变化</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary&lt;NSKeyValueChangeKey,id&gt; *)change context:(void *)context &#123;</span><br><span class="line">    &#x2F;&#x2F;if (context &#x3D;&#x3D; PersonNameContext) &#123;&#125;</span><br><span class="line">    NSLog(@&quot;%@&quot;,change);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>这里可以通过<code>keyPath</code>来判断某一个属性发生变化，如果监听了多个对象，并且有相同的属性，则在这里会添加一堆判断条件，会使代码变得臃肿，所以还是推荐使用context来判断。</p>
-<h3 id="1-3-移除KVO"><a href="#1-3-移除KVO" class="headerlink" title="1.3 移除KVO"></a>1.3 移除KVO</h3><p>添加了监听之后，再<code>dealloc</code>时一定要移除。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">- (void)removeObserver:(NSObject *)observer forKeyPath:(NSString *)keyPath context:(nullable void *)context API_AVAILABLE(macos(10.7), ios(5.0), watchos(2.0), tvos(9.0));</span><br><span class="line">- (void)removeObserver:(NSObject *)observer forKeyPath:(NSString *)keyPath;</span><br></pre></td></tr></table></figure>
-
-<h2 id="2-KVO中属性依赖"><a href="#2-KVO中属性依赖" class="headerlink" title="2. KVO中属性依赖"></a>2. KVO中属性依赖</h2><p>比如我们要监听<code>fullName</code>属性的变化，当<code>name</code>和<code>nickName</code>中的一个发生变化时，都需要改变<code>fullName</code>的值，需要怎么处理？如果同时监听两个属性也不是不行，但是肯定还有其他更简便的方法。这就需要添加依赖。</p>
-<p>在<code>Person.m</code>中实现如下方法：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">+ (NSSet&lt;NSString *&gt; *)keyPathsForValuesAffectingValueForKey:(NSString *)key &#123;</span><br><span class="line">    </span><br><span class="line">    NSSet *keyPaths &#x3D; [super keyPathsForValuesAffectingValueForKey:key];</span><br><span class="line">    if ([key isEqualToString:@&quot;fullName&quot;]) &#123;</span><br><span class="line">        NSArray *affectingKeys &#x3D; @[@&quot;name&quot;, @&quot;nickName&quot;];</span><br><span class="line">        keyPaths &#x3D; [keyPaths setByAddingObjectsFromArray:affectingKeys];</span><br><span class="line">    &#125;</span><br><span class="line">    return keyPaths;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>这样就可以实现依赖监听了，也不用实现重复代码。</p>
-<h2 id="3-KVO监听数组"><a href="#3-KVO监听数组" class="headerlink" title="3. KVO监听数组"></a>3. KVO监听数组</h2><p>我们实现对person.mArray的监听，但是当我们执行添加和删除操作时，方法并不会触发监听事件。</p>
-<p>这也就时开始的时候所说的，KVO是基于KVC的，这个时候，我们利用KVC的方式获取数组就可以实现了。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; [self.person.mArray addObject:@&quot;1&quot;];</span><br><span class="line">[[self.person mutableArrayValueForKey:@&quot;mArray&quot;] addObject:@&quot;1&quot;];</span><br></pre></td></tr></table></figure>
-
-<h2 id="4-自动、手动实现监听"><a href="#4-自动、手动实现监听" class="headerlink" title="4. 自动、手动实现监听"></a>4. 自动、手动实现监听</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 自动开关</span><br><span class="line">+ (BOOL)automaticallyNotifiesObserversForKey:(NSString *)key</span><br></pre></td></tr></table></figure>
-<p>这是一个系统方法，只需要重写即可，默认是YES，如果针对某些key返回了NO，则需要手动实现set方法。没有实现则不会监听到。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">- (void)setName:(NSString *)name&#123;</span><br><span class="line">    [self willChangeValueForKey:@&quot;name&quot;];</span><br><span class="line">    _name &#x3D; name;</span><br><span class="line">    [self didChangeValueForKey:@&quot;name&quot;];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-<h1 id="KVO底层原理"><a href="#KVO底层原理" class="headerlink" title="KVO底层原理"></a>KVO底层原理</h1><p>我们通过监听一个中的<code>name</code>属性的变化来判断监听前后会出现什么不同，来查看KVO的底层实现原理。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">self.person &#x3D; [Person new];</span><br><span class="line"></span><br><span class="line">[self.person addObserver:self forKeyPath:@&quot;name&quot; options:(NSKeyValueObservingOptionNew) context:NULL];</span><br></pre></td></tr></table></figure>
-
-<p>我们在这一行代码添加一个断点，分别通过lldb打印当前person的变化。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">(lldb) po self.person</span><br><span class="line">&lt;Person: 0x60000294a010&gt;</span><br><span class="line">(lldb) po self.person-&gt;isa</span><br><span class="line">Person</span><br><span class="line">(lldb) po [self.person class]</span><br><span class="line">Person</span><br><span class="line">(lldb) po [self.person superclass]</span><br><span class="line">NSObject</span><br><span class="line"></span><br><span class="line">(lldb) po self.person</span><br><span class="line">&lt;Person: 0x60000294a010&gt;</span><br><span class="line">(lldb) po self.person-&gt;isa</span><br><span class="line">NSKVONotifying_Person</span><br><span class="line">(lldb) po [self.person class]</span><br><span class="line">Person</span><br><span class="line">(lldb) po [self.person superclass]</span><br><span class="line">NSObject</span><br></pre></td></tr></table></figure>
-
-<p>我们发现虽然两次<code>po self.person</code>输出的都是Person类，指向的内存地址也是一样的，两次输出class和superClass确都相同。但是<code>isa</code>的指向却是完全不同，竟然变成了<code>NSKVONotifying_Person</code>。</p>
-<p>那<code>NSKVONotifying_Person</code>是什么呢？怎么会创建一个这个东西，难道是<code>Person</code>的子类？<br>猜测应该是Person的子类。</p>
-<p>为什么两次输出class和superClass都是一样的？<br>我们猜测可能是改写了class方法。</p>
-<p>带着疑问，我们输出一下监听前后的方法列表，已经两个class的superClass。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">-(void)viewDidLoad &#123;</span><br><span class="line">    &#x2F;&#x2F; 通过使用字符串的方式获取Class</span><br><span class="line">    Class cls1 &#x3D; class_getSuperclass(objc_getClass(&quot;Person&quot;));</span><br><span class="line">    [self printClassAllMethod:objc_getClass(&quot;Person&quot;)];</span><br><span class="line">    NSLog(@&quot;cls1 &#x3D; %@&quot;, cls1);</span><br><span class="line">        </span><br><span class="line">    self.person &#x3D; [[Person alloc] init];</span><br><span class="line">    [self.person addObserver:self forKeyPath:@&quot;name&quot; options:(NSKeyValueObservingOptionNew) context:NULL];</span><br><span class="line">        </span><br><span class="line">    [self printClassAllMethod:objc_getClass(&quot;NSKVONotifying_Person&quot;)];</span><br><span class="line">    Class cls2 &#x3D; class_getSuperclass(objc_getClass(&quot;NSKVONotifying_Person&quot;));</span><br><span class="line">    NSLog(@&quot;cls2 &#x3D; %@&quot;, cls2);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">#pragma mark - 遍历方法-ivar-property</span><br><span class="line">- (void)printClassAllMethod:(Class)cls &#123;</span><br><span class="line">    NSLog(@&quot;----%@----&quot;, cls);</span><br><span class="line">    unsigned int count &#x3D; 0;</span><br><span class="line">    Method *methodList &#x3D; class_copyMethodList(cls, &amp;count);</span><br><span class="line">    for (int i &#x3D; 0; i&lt;count; i++) &#123;</span><br><span class="line">        Method method &#x3D; methodList[i];</span><br><span class="line">        SEL sel &#x3D; method_getName(method);</span><br><span class="line">        IMP imp &#x3D; class_getMethodImplementation(cls, sel);</span><br><span class="line">        </span><br><span class="line">        NSLog(@&quot;%@-%p&quot;,NSStringFromSelector(sel),imp);</span><br><span class="line">    &#125;</span><br><span class="line">    free(methodList);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>输出结果：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 监听前</span><br><span class="line">KVODemo[74347:5007124] ----Person----</span><br><span class="line">KVODemo[74347:5007124] name-0x105ec6550</span><br><span class="line">KVODemo[74347:5007124] .cxx_destruct-0x105ec6580</span><br><span class="line">KVODemo[74347:5007124] setName:-0x105ec64f0</span><br><span class="line">KVODemo[74347:5007124] cls1 &#x3D; NSObject</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 监听后</span><br><span class="line">KVODemo[74347:5007124] ----NSKVONotifying_Person----</span><br><span class="line">KVODemo[74347:5007124] setName:-0x7fff207bab57</span><br><span class="line">KVODemo[74347:5007124] class-0x7fff207b9662</span><br><span class="line">KVODemo[74347:5007124] dealloc-0x7fff207b940b</span><br><span class="line">KVODemo[74347:5007124] _isKVOA-0x7fff207b9403</span><br><span class="line">KVODemo[74347:5007124] cls2 &#x3D; Person</span><br></pre></td></tr></table></figure>
-
-<p>我们发现:</p>
-<ul>
-<li>监听前Person类中有3个方法，super是<code>NSObject</code></li>
-<li>监听后Person类中有4个方法，super是<code>Person</code></li>
-</ul>
-<p>进一步验证了我们之前的猜测，<code>NSKVONotifying_Person</code>是<code>Person</code>的子类，并且重些了<code>setName:, class, dealloc</code>方法，因为地址都已经发生了变化。</p>
-<p>打印一下对应的IMP地址，看看所在的调用栈：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">(lldb) po (IMP)0x105ec64f0</span><br><span class="line">(KVODemo&#96;-[Person setName:] at Person.m:12)</span><br><span class="line"></span><br><span class="line">(lldb) po (IMP)0x7fff207bab57</span><br><span class="line">(Foundation&#96;_NSSetObjectValueAndNotify)</span><br><span class="line">return class_getSuperclass(object_getClass(self));</span><br></pre></td></tr></table></figure>
-
-<p>也说明了，根本不是同一个IMP。当然<code>_NSSetObjectValueAndNotify</code>也不仅仅只有一种，使用<code>~ nm Foundation | grep ValueAndNotify</code>命令可以在iTerm2上查看对应的方法。比如：NSSetBoolValueAndNotify、NSSetIntValueAndNotify等等，根据当前属性的类型来判断的。</p>
-<p>也正是因为重写了，<code>setName:</code>才会在外部调用时，person.name也会同时改变。<br>重新<code>class</code>方法，是为了不暴露<code>NSKVONotifying_Person</code>类，在外界调用时防止混淆。</p>
-<p><img src="person-isa.jpg" alt=""></p>
-<h1 id="自定义KVO"><a href="#自定义KVO" class="headerlink" title="自定义KVO"></a>自定义KVO</h1><p>根据上面的分析，如果自定义KVO的话，我们需要从下面几个方面入手：</p>
-<ol>
-<li><p>先判断key有没有set方法，有set方法才行。</p>
-</li>
-<li><p>动态生成子类：</p>
-<ol>
-<li>判断是否已经存在子类，没有创建新的子类。</li>
-<li>注册类</li>
-<li>添加class方法，重新class方法</li>
-<li>添加setter方法，重新set方法，这里需要处理消息，发送给父类，通知修改值。</li>
-</ol>
-</li>
-<li><p>修改isa指向</p>
-</li>
-<li><p>保存信息，方便回调。</p>
-</li>
-<li><p>remove时，重新设置isa指向父类。</p>
-</li>
-</ol>
-<p>代码就不贴了，哪都有~</p>
-<h1 id="通过GNU解析"><a href="#通过GNU解析" class="headerlink" title="通过GNU解析"></a>通过GNU解析</h1><p><a href="http://www.gnustep.org/resources/downloads.php" target="_blank" rel="noopener">gnu源码</a></p>
-<p>gnu源码可以清晰的看到整体的流程，只是读起来可能会稍微费力一点，查看代码中的重要逻辑其实就可以了。</p>
-<h1 id="FBKVOController"><a href="#FBKVOController" class="headerlink" title="FBKVOController"></a>FBKVOController</h1><p>稍微说一下这个，内部实现还是很值得学习的。</p>
-<p>我们直接看源码实现：</p>
-<p>首先创建一个<code>FBKVOController</code>类型的实例变量。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">- (instancetype)initWithObserver:(nullable id)observer retainObserved:(BOOL)retainObserved</span><br><span class="line">&#123;</span><br><span class="line">  self &#x3D; [super init];</span><br><span class="line">  if (nil !&#x3D; self) &#123;</span><br><span class="line">    _observer &#x3D; observer;</span><br><span class="line">    NSPointerFunctionsOptions keyOptions &#x3D; retainObserved ? NSPointerFunctionsStrongMemory|NSPointerFunctionsObjectPointerPersonality : NSPointerFunctionsWeakMemory|NSPointerFunctionsObjectPointerPersonality;</span><br><span class="line">    _objectInfosMap &#x3D; [[NSMapTable alloc] initWithKeyOptions:keyOptions valueOptions:NSPointerFunctionsStrongMemory|NSPointerFunctionsObjectPersonality capacity:0];</span><br><span class="line">    pthread_mutex_init(&amp;_lock, NULL);</span><br><span class="line">  &#125;</span><br><span class="line">  return self;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>这里会生成一个<code>NSMapTable</code>类型的数据，里面存放的是&lt;id, NSMutableSet&lt;_FBKVOInfo *&gt; *&gt;这种格式的数据。</p>
-<p>然后走到添加监听的方法，这里也没啥好说的，就是创建了一个<code>_FBKVOInfo</code>，存放系统KVO需要的所有东西，重点再下一句代码。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">- (void)observe:(nullable id)object keyPath:(NSString *)keyPath options:(NSKeyValueObservingOptions)options block:(FBKVONotificationBlock)block</span><br><span class="line">&#123;</span><br><span class="line">  NSAssert(0 !&#x3D; keyPath.length &amp;&amp; NULL !&#x3D; block, @&quot;missing required parameters observe:%@ keyPath:%@ block:%p&quot;, object, keyPath, block);</span><br><span class="line">  if (nil &#x3D;&#x3D; object || 0 &#x3D;&#x3D; keyPath.length || NULL &#x3D;&#x3D; block) &#123;</span><br><span class="line">    return;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; create info</span><br><span class="line">  _FBKVOInfo *info &#x3D; [[_FBKVOInfo alloc] initWithController:self keyPath:keyPath options:options block:block];</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; observe object with info</span><br><span class="line">  [self _observe:object info:info];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>好了，重点来了。会从map表中查找对应的object是否有对应的数据。然后与新创建的info进行比较，没有则添加到map表中。</p>
-<p><code>_FBKVOSharedController</code>是一个单利，所有的观察者都通过它来进行监听，内部使用的系统的KVO。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">- (void)_observe:(id)object info:(_FBKVOInfo *)info</span><br><span class="line">&#123;</span><br><span class="line">  &#x2F;&#x2F; lock</span><br><span class="line">  pthread_mutex_lock(&amp;_lock);</span><br><span class="line"></span><br><span class="line">  NSMutableSet *infos &#x3D; [_objectInfosMap objectForKey:object];</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; check for info existence</span><br><span class="line">  _FBKVOInfo *existingInfo &#x3D; [infos member:info];</span><br><span class="line">  if (nil !&#x3D; existingInfo) &#123;</span><br><span class="line">    &#x2F;&#x2F; observation info already exists; do not observe it again</span><br><span class="line"></span><br><span class="line">    &#x2F;&#x2F; unlock and return</span><br><span class="line">    pthread_mutex_unlock(&amp;_lock);</span><br><span class="line">    return;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; lazilly create set of infos</span><br><span class="line">  if (nil &#x3D;&#x3D; infos) &#123;</span><br><span class="line">    infos &#x3D; [NSMutableSet set];</span><br><span class="line">    [_objectInfosMap setObject:infos forKey:object];</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; add info and oberve</span><br><span class="line">  [infos addObject:info];</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; unlock prior to callout</span><br><span class="line">  pthread_mutex_unlock(&amp;_lock);</span><br><span class="line"></span><br><span class="line">  [[_FBKVOSharedController sharedController] observe:object info:info];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>在系统方法接收到改变时，会通过block、方法或者系统方法来返回数据。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">- (void)observeValueForKeyPath:(nullable NSString *)keyPath</span><br><span class="line">                      ofObject:(nullable id)object</span><br><span class="line">                        change:(nullable NSDictionary&lt;NSString *, id&gt; *)change</span><br><span class="line">                       context:(nullable void *)context</span><br></pre></td></tr></table></figure>
-
-<p>最后就是移除。需要注意的是，添加的时候是新创建了一个info，移除的时候，为啥也是新创建了一个info？</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">- (void)unobserve:(nullable id)object keyPath:(NSString *)keyPath</span><br><span class="line">&#123;</span><br><span class="line">  &#x2F;&#x2F; create representative info</span><br><span class="line">  _FBKVOInfo *info &#x3D; [[_FBKVOInfo alloc] initWithController:self keyPath:keyPath];</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; unobserve object property</span><br><span class="line">  [self _unobserve:object info:info];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p><code>_unobserve:info:</code>的内部实现与添加的时候有点类似，都是通过map去找对应的<code>_FBKVOInfo</code>。那新创建一个info能起到移除的效果吗？答案是肯定的。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">- (void)_unobserve:(id)object info:(_FBKVOInfo *)info</span><br><span class="line">&#123;</span><br><span class="line">  &#x2F;&#x2F; lock</span><br><span class="line">  pthread_mutex_lock(&amp;_lock);</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; get observation infos</span><br><span class="line">  NSMutableSet *infos &#x3D; [_objectInfosMap objectForKey:object];</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; lookup registered info instance</span><br><span class="line">  _FBKVOInfo *registeredInfo &#x3D; [infos member:info];</span><br><span class="line"></span><br><span class="line">  if (nil !&#x3D; registeredInfo) &#123;</span><br><span class="line">    [infos removeObject:registeredInfo];</span><br><span class="line"></span><br><span class="line">    &#x2F;&#x2F; remove no longer used infos</span><br><span class="line">    if (0 &#x3D;&#x3D; infos.count) &#123;</span><br><span class="line">      [_objectInfosMap removeObjectForKey:object];</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; unlock</span><br><span class="line">  pthread_mutex_unlock(&amp;_lock);</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F; unobserve</span><br><span class="line">  [[_FBKVOSharedController sharedController] unobserve:object info:registeredInfo];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>因为创建的临时变量info，是通过NSMutableSet获取<code>member</code>来获取的，是怎么获取到的。</p>
-<blockquote>
-<p>Each element of the set is checked for equality with object until a match is found or the end of the set is reached. Objects are considered equal if isEqual: returns YES.</p>
-</blockquote>
-<p><code>member:</code>方法是通过<code>isEqual:</code>来判断是否是对应的值。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F;_FBKVOInfo</span><br><span class="line">- (NSUInteger)hash</span><br><span class="line">&#123;</span><br><span class="line">  return [_keyPath hash];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (BOOL)isEqual:(id)object</span><br><span class="line">&#123;</span><br><span class="line">  if (nil &#x3D;&#x3D; object) &#123;</span><br><span class="line">    return NO;</span><br><span class="line">  &#125;</span><br><span class="line">  if (self &#x3D;&#x3D; object) &#123;</span><br><span class="line">    return YES;</span><br><span class="line">  &#125;</span><br><span class="line">  if (![object isKindOfClass:[self class]]) &#123;</span><br><span class="line">    return NO;</span><br><span class="line">  &#125;</span><br><span class="line">  return [_keyPath isEqualToString:((_FBKVOInfo *)object)-&gt;_keyPath];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>重写了<code>hash</code>方法和<code>isEqual:</code>方法，这样就可以直接通过member获取了。这源码的设计思路简直爽的一批<del>~</del>网上找到FBKVO流程图：</p>
-<p><img src="FBKVOController.png" alt="网上找到FBKVO流程图"></p>
-<h1 id="总结："><a href="#总结：" class="headerlink" title="总结："></a>总结：</h1><ol>
-<li>KVO的变量依赖</li>
-<li>KVO的原理：<ol>
-<li>动态生成子类<code>NSKVONotifying_A</code></li>
-<li>注册类</li>
-<li>动态添加class方法，返回父类</li>
-<li>动态添加set方法，消息回传给父类，通知修改值</li>
-<li>修改isa指向子类</li>
-<li>移除KVO，修改isa执行父类</li>
-</ol>
-</li>
-<li>GNU源码</li>
-<li>FBKVOController源码设计思路。</li>
-</ol>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
   </div>
 
   
@@ -2118,7 +2030,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">36</span>
+          <span class="site-state-item-count">37</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
