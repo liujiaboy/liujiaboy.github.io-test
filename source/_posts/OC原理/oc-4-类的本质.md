@@ -34,7 +34,7 @@ Teacher *t = [[Teacher alloc] init];
 
 我们根据上诉代码进行分析，isa指针的指向。
 
-> 注意，这里是用的是真机，而非Mac/模拟器
+> 注意，这里是用的是模拟器，Teacher类继承自Person
 
 ## 1.2 实例对象的isa
 首先我们先看Person的实例p的isa指向情况
@@ -42,25 +42,26 @@ Teacher *t = [[Teacher alloc] init];
 ```
 // 首先打印一下p的内存情况
 (lldb) po p
-<Person: 0x1d0016620>
+<Person: 0x1006460b0>
 // 输出p指针的情况
 (lldb) x/4gx p
-0x1d0016620: 0x000001a10018d0c5 0x0000000000000000
-0x1d0016630: 0x00000001d0091b70 0x0000000000000000
+0x1006460b0: 0x011d8001000083f9 0x0000000000000000
+0x1006460c0: 0x0000000000000000 0x0000000000000000
 
-(lldb) p 0x000001a10018d0c5
+(lldb) p p 0x011d8001000083f9
 (long) $6 = 1791002988741
 
 ```
 
-这里拿到p指针指向的内存情况，我们知道第一块内存区域存放的是isa指针，直接打印的话，发现就是一串数字，啥也看不出来。还记得上一章中object_getClass反向验证isa指向最后的"&"运算吗？`0x000001a10018d0c5`这个值就是isa->bits，我们用它与`ISA_MASK`进行&运算。因为这里是用的真机，所以`ISA_MASK = 0x0000000ffffffff8ULL`，如果是用Mac或者模拟器，根据芯片类型判断是否是ARM64架构还是x86，然后使用对应的值进行换算。
+这里拿到p指针指向的内存情况，我们知道第一块内存区域存放的是isa指针，直接打印的话，发现就是一串数字，啥也看不出来。还记得上一章中object_getClass反向验证isa指向最后的"&"运算吗？`0x011d8001000083f9`这个值就是isa->bits，我们用它与`ISA_MASK`进行&运算。因为这里是用的真机，所以`ISA_MASK = 0x00007ffffffffff8`，如果是用Mac或者模拟器，根据芯片类型判断是否是ARM64架构还是x86，然后使用对应的值进行换算。
 
 ```
 // p/x输出内存的16进制
-(lldb) p/x 0x000001a10018d0c5 & 0x0000000ffffffff8ULL
-(unsigned long long) $3 = 0x000000010018d0c0
+(lldb) p/x 0x011d8001000083f9 & 0x00007ffffffffff8
+(long) $2 = 0x00000001000083f8
 
-(lldb) po 0x000000010018d0c0
+// 这里po就是Person类
+(lldb) po 0x00000001000083f8
 Person
 ```
 
@@ -68,11 +69,16 @@ Person
 
 ```
 (lldb) p/x object_getClass(p)
-(Class _Nullable) $0 = 0x000000010018d0c0 Person
+(Class) $12 = 0x00000001000083f8 Person
 ```
 
 是不是发现，Person类的内存地址是一样的。如果再实例化一个p1，看p1->isa指向的和p->isa指向的是否是同一个Person类的内存地址。
 
+```
+// 直接使用object_getClass获取类对象。
+lldb) p/x object_getClass([LGPerson alloc])
+(Class) $26 = 0x00000001000083f8 LGPerson
+```
 答案是肯定的，Person类在内存中只有一份，也就是说所有的类对象在内存中都只有一份。
 
 ## 1.3 类对象的isa
@@ -82,13 +88,13 @@ Person
 (lldb) p 0x000001a10018d0c5
 (long) $6 = 1791002988741
 
-(lldb) x/4gx 0x000000010018d0c0
-0x10018d0c0: 0x000001a10018d099 0x00000001b5b12ea0
-0x10018d0d0: 0x00000001c00edd00 0x0000000400000007
+(lldb) x/4gx 0x00000001000083f8
+0x1000083f8: 0x00000001000083d0 0x000000010036a140
+0x100008408: 0x0000000100645d60 0x0001803000000003
 
-(lldb) p/x 0x000001a10018d099 & 0x0000000ffffffff8ULL
-(unsigned long long) $7 = 0x000000010018d098
-(lldb) po 0x000000010018d098
+(lldb) p/x 0x00000001000083d0 & 0x00007ffffffffff8
+(long) $4 = 0x00000001000083d0
+(lldb) po 0x00000001000083d0
 Person
 ```
 发现Person类对象的isa指向的还是Person，但是这个Person所在的内存地址与Person类对象不一样。
@@ -100,72 +106,76 @@ Person
 我们继续寻找元类的isa
 
 ```
-(lldb) x/4gx 0x000000010018d098
-0x10018d098: 0x000001a1b5b12ec9 0x00000001b5b12ec8
-0x10018d0a8: 0x00000001c00edc80 0x0000000100000007
+// 0x00000001000083d0是Person元类所在的内存
+(lldb) x/4gx 0x00000001000083d0
+0x1000083d0: 0x000000010036a0f0 0x000000010036a0f0
+0x1000083e0: 0x0000000100714d10 0x0002e03100000003
 
-(lldb) p/x 0x000001a1b5b12ec9 & 0x0000000ffffffff8ULL
-(unsigned long long) $9 = 0x00000001b5b12ec8
-(lldb) po 0x00000001b5b12ec8
+(lldb) p/x 0x000000010036a0f0 & 0x00007ffffffffff8
+(long) $9 = 0x000000010036a0f0
+(lldb) po 0x000000010036a0f0
 NSObject
+
+// 拿到NSObject的地址继续x/4gx
+(lldb) x/4gx 0x000000010036a0f0
+0x10036a0f0: 0x000000010036a0f0 0x000000010036a140
+0x10036a100: 0x00000001007877b0 0x0003e03100000007
 ```
 
-使用相同的方法找到元类的isa指向的是NSObject，这个NSObject是类对象吗？
+使用相同的方法找到元类的`isa`指向的是`NSObject`，这个`NSObject`是类对象吗？
 
-我们通过object_getClass([[NSObject alloc] init])来看看NSObject类对象的内存
+对`NSObject`继续`x/4gx`发现`isa`锁指向的内存地址是一样的。
+
+我们通过`object_getClass([[NSObject alloc] init])`来看看`NSObject`类对象的内存
 
 ```
-(lldb) p/x object_getClass([[NSObject alloc] init])
-(Class _Nullable) $11 = 0x00000001b5b12ea0 NSObject
+// 获取NSObject类的地址，与p/x NSObject.class效果一致
+(lldb) p/x object_getClass([NSObject alloc])
+(Class) $13 = 0x000000010036a140 NSObject
 
-(lldb) x/4gx 0x00000001b5b12ea0
-0x1b5b12ea0: 0x000001a1b5b12ec9 0x0000000000000000
-0x1b5b12eb0: 0x00000001d41fbb00 0x0000000a0000000f
+(lldb) x/4gx 0x000000010036a140
+0x10036a140: 0x000000010036a0f0 0x0000000000000000
+0x10036a150: 0x0000000100786740 0x0002801000000003
 
 // 从这里开始，就已经跟上面的内存地址重复了
-(lldb) p/x 0x000001a1b5b12ec9 & 0x0000000ffffffff8ULL
-(unsigned long long) $12 = 0x00000001b5b12ec8
-(lldb) po 0x00000001b5b12ec8
+(lldb) p/x 0x000000010036a0f0 & 0x00007ffffffffff8
+(long) $14 = 0x000000010036a0f0
+(lldb) po 0x000000010036a0f0
 NSObject
 ```
 
-到这里，是不是看明白了点啥？
+到这里，是不是看明白了点啥？`NSObject`类对象也有指向`NSObject`的元类，`Person`的元类的`isa`指向的是`NSObject`的元类。
 
-Person的元类的isa指向的是NSObjec的元类。
-
-### 1.5 使用相同的办法查看Teache实例的isa
+### 1.5 使用相同的办法查看Teacher的isa
 
 ```
-(lldb) x/4gx t
-0x1d022dee0: 0x000001a102680fd5 0x0000000000000000
-0x1d022def0: 0x0000000000000000 0x0000000000000000
-(lldb) po 0x000001a102680fd5 & 0x0000000ffffffff8ULL
+// 这里使用简单的方式，直接使用Teacher类
+(lldb) x/4gx Teacher.class
+0x100008380: 0x00000001000083a8 0x00000001000083f8
+0x100008390: 0x0000000100362370 0x0000803000000000
+
+(lldb) p/x 0x00000001000083a8 & 0x00007ffffffffff8
+(long) $18 = 0x00000001000083a8
+
+(lldb) po 0x00000001000083a8
 Teacher
 
-(lldb) p/x 0x000001a102680fd5 & 0x0000000ffffffff8ULL
-(unsigned long long) $18 = 0x0000000102680fd0
-(lldb) po 0x0000000102680fd0
-Teacher
+(lldb) x/4gx 0x00000001000083a8
+0x1000083a8: 0x000000010036a0f0 0x00000001000083d0
+0x1000083b8: 0x0000000101138140 0x0001e03100000003
 
-(lldb) x/4gx 0x0000000102680fd0
-0x102680fd0: 0x000001a102680fa9 0x00000001026810c0
-0x102680fe0: 0x00000001c00e6700 0x0000000400000007
-(lldb) po 0x000001a102680fa9
-1791041736617
-
-(lldb) p/x 0x000001a102680fa9 & 0x0000000ffffffff8ULL
-(unsigned long long) $21 = 0x0000000102680fa8
-(lldb) po 0x0000000102680fa8
-Teacher
-
-(lldb) x/4gx 0x0000000102680fa8
-0x102680fa8: 0x000001a1b5b12ec9 0x0000000102681098
-0x102680fb8: 0x00000001c00e6a80 0x0000000300000007
-(lldb) p/x 0x000001a1b5b12ec9 & 0x0000000ffffffff8ULL
-(unsigned long long) $23 = 0x00000001b5b12ec8
-(lldb) po 0x00000001b5b12ec8
+(lldb) p/x 0x000000010036a0f0 & 0x00007ffffffffff8
+(long) $20 = 0x000000010036a0f0
+// 这里又指向了NSObject
+(lldb) po 0x000000010036a0f0
 NSObject
 ```
+
+看到这里应该发现了点东西吧。实例对象的isa->类对象的isa->NSObject的isa，中间类对象与继承没有一丢丢关系。
+
+### 继承链
+
+
 
 ## 1.6 总结
 
@@ -380,13 +390,13 @@ private:
 ```
 其实这些就能算出来我们需要多少字节，我已经标好了。静态变量和方法是没有算在结构体内部的哈。
 
-所以8+24 = 32个字节。
+所以8+8+8 = 32个字节。
 
 也就是我们获取到的`objc_class`的isa指针，然后偏移32个字节，也就是`0x20`。
 
 我们做一下验证。
 
-### 2.4.1 llvm 验证属性存放的位置
+### 2.4.1 lldb 验证属性存放的位置
 
 ```
 (lldb) po p
@@ -557,3 +567,276 @@ imp：方法实现。函数指针地址
 
 
 
+```
+(lldb) x/6gx LGPerson.class
+0x1000083f8: 0x00000001000083d0 0x000000010036a140
+0x100008408: 0x00000001006176b0 0x0001803000000003
+0x100008418: 0x00000001012042e4 0x00000001000b9970
+(lldb) p (class_data_bits_t *)0x100008418
+(class_data_bits_t *) $1 = 0x0000000100008418
+(lldb) p $1->data()
+(class_rw_t *) $2 = 0x00000001012042e0
+(lldb) p *$2
+(class_rw_t) $4 = {
+  flags = 2156396544
+  witness = 1
+  ro_or_rw_ext = {
+    std::__1::atomic<unsigned long> = {
+      Value = 4295000480
+    }
+  }
+  firstSubclass = LGTeacher
+  nextSiblingClass = NSBinder
+}
+(lldb) p $2->properties()
+(const property_array_t) $5 = {
+  list_array_tt<property_t, property_list_t, RawPtr> = {
+     = {
+      list = {
+        ptr = 0x0000000100008320
+      }
+      arrayAndFlag = 4295000864
+    }
+  }
+}
+(lldb) p $5.list
+(const RawPtr<property_list_t>) $6 = {
+  ptr = 0x0000000100008320
+}
+(lldb) p $6.ptr
+(property_list_t *const) $7 = 0x0000000100008320
+(lldb) p *$7
+(property_list_t) $8 = {
+  entsize_list_tt<property_t, property_list_t, 0, PointerModifierNop> = (entsizeAndFlags = 16, count = 2)
+}
+(lldb) p $8.get(0)
+(property_t) $9 = (name = "name", attributes = "T@\"NSString\",C,N,V_name")
+(lldb) p $8.get(1)
+(property_t) $10 = (name = "age", attributes = "Ti,N,V_age")
+(lldb) 
+
+
+ivars
+
+(lldb) p $1->safe_ro()
+(const class_ro_t *) $11 = 0x00000001000081a0
+(lldb) p *$11
+(const class_ro_t) $12 = {
+  flags = 0
+  instanceStart = 8
+  instanceSize = 40
+  reserved = 0
+   = {
+    ivarLayout = 0x0000000000000000
+    nonMetaclass = nil
+  }
+  name = {
+    std::__1::atomic<const char *> = "LGPerson" {
+      Value = 0x0000000100003edc "LGPerson"
+    }
+  }
+  baseMethodList = 0x00000001000081e8
+  baseProtocols = 0x0000000000000000
+  ivars = 0x0000000100008298
+  weakIvarLayout = 0x0000000000000000
+  baseProperties = 0x0000000100008320
+  _swiftMetadataInitializer_NEVER_USE = {}
+}
+(lldb) p $11.ivars
+(const ivar_list_t *const) $13 = 0x0000000100008298
+  Fix-it applied, fixed expression was: 
+    $11->ivars
+(lldb) p $11->ivars
+(const ivar_list_t *const) $14 = 0x0000000100008298
+(lldb) p *$14
+(const ivar_list_t) $15 = {
+  entsize_list_tt<ivar_t, ivar_list_t, 0, PointerModifierNop> = (entsizeAndFlags = 32, count = 4)
+}
+(lldb) p $15.get(0)
+(ivar_t) $16 = {
+  offset = 0x0000000100008360
+  name = 0x0000000100003f06 "_hobby"
+  type = 0x0000000100003f63 "@\"NSString\""
+  alignment_raw = 3
+  size = 8
+}
+(lldb) p $15.get(1)
+(ivar_t) $17 = {
+  offset = 0x0000000100008368
+  name = 0x0000000100003f0d "_height"
+  type = 0x0000000100003f6f "d"
+  alignment_raw = 3
+  size = 8
+}
+(lldb) p $15.get(2)
+(ivar_t) $18 = {
+  offset = 0x0000000100008370
+  name = 0x0000000100003f15 "_age"
+  type = 0x0000000100003f71 "i"
+  alignment_raw = 2
+  size = 4
+}
+(lldb) p $15.get(3)
+(ivar_t) $19 = {
+  offset = 0x0000000100008378
+  name = 0x0000000100003f1a "_name"
+  type = 0x0000000100003f63 "@\"NSString\""
+  alignment_raw = 3
+  size = 8
+}
+(lldb) 
+
+
+实例方法
+
+
+(lldb) p $1->methods()
+error: <user expression 22>:1:5: no member named 'methods' in 'class_data_bits_t'
+$1->methods()
+~~  ^
+(lldb) p $2->methods()
+(const method_array_t) $20 = {
+  list_array_tt<method_t, method_list_t, method_list_t_authed_ptr> = {
+     = {
+      list = {
+        ptr = 0x00000001000081e8
+      }
+      arrayAndFlag = 4295000552
+    }
+  }
+}
+(lldb) p $20.list
+(const method_list_t_authed_ptr<method_list_t>) $21 = {
+  ptr = 0x00000001000081e8
+}
+(lldb) p $21.ptr
+(method_list_t *const) $22 = 0x00000001000081e8
+(lldb) p *$22
+(method_list_t) $23 = {
+  entsize_list_tt<method_t, method_list_t, 4294901763, method_t::pointer_modifier> = (entsizeAndFlags = 27, count = 7)
+}
+(lldb) p $22.get(0)
+error: Execution was interrupted, reason: EXC_BAD_ACCESS (code=1, address=0x4000000004).
+The process has been returned to the state before expression evaluation.
+(lldb) p $23.get(0)
+(method_t) $24 = {}
+(lldb) p $23.get(0).big()
+(method_t::big) $25 = {
+  name = "saySomething"
+  types = 0x0000000100003f5b "v16@0:8"
+  imp = 0x0000000100003c60 (KCObjcBuild`-[LGPerson saySomething])
+}
+(lldb) p $23.get(1).big()
+(method_t::big) $26 = {
+  name = "func1"
+  types = 0x0000000100003f5b "v16@0:8"
+  imp = 0x0000000100003c90 (KCObjcBuild`-[LGPerson func1])
+}
+(lldb) p $23.get(2).big()
+(method_t::big) $27 = {
+  name = "func2"
+  types = 0x0000000100003f5b "v16@0:8"
+  imp = 0x0000000100003cc0 (KCObjcBuild`-[LGPerson func2])
+}
+(lldb) p $23.get(3).big()
+(method_t::big) $28 = {
+  name = "name"
+  types = 0x0000000100003f53 "@16@0:8"
+  imp = 0x0000000100003cf0 (KCObjcBuild`-[LGPerson name])
+}
+(lldb) p $23.get(4).big()
+(method_t::big) $29 = {
+  name = "setName:"
+  types = 0x0000000100003f73 "v24@0:8@16"
+  imp = 0x0000000100003d20 (KCObjcBuild`-[LGPerson setName:])
+}
+(lldb) p $23.get(5).big()
+(method_t::big) $30 = {
+  name = "age"
+  types = 0x0000000100003f7e "i16@0:8"
+  imp = 0x0000000100003d50 (KCObjcBuild`-[LGPerson age])
+}
+(lldb) p $23.get(6).big()
+(method_t::big) $31 = {
+  name = "setAge:"
+  types = 0x0000000100003f86 "v20@0:8i16"
+  imp = 0x0000000100003d70 (KCObjcBuild`-[LGPerson setAge:])
+}
+(lldb) p $23.get(7).big()
+Assertion failed: (i < count), function get, file /Users/alan/Desktop/Learn/source_code/objc4-818.2/runtime/objc-runtime-new.h, line 624.
+error: Execution was interrupted, reason: signal SIGABRT.
+The process has been returned to the state before expression evaluation.
+(lldb) 
+
+
+
+类方法
+(lldb) x/4gx LGPerson.class
+0x1000083f8: 0x00000001000083d0 0x000000010036a140
+0x100008408: 0x00000001006176b0 0x0001803000000003
+(lldb) p 0x00000001000083d0 & 0x00007ffffffffff8
+(long) $33 = 4295001040
+(lldb) po $33
+LGPerson
+
+(lldb) x/6gx $33
+0x1000083d0: 0x000000010036a0f0 0x000000010036a0f0
+0x1000083e0: 0x00000001006959d0 0x0002e03100000003
+0x1000083f0: 0x0000000101204304 0x00000001000083d0
+(lldb) p (class_data_bits_t *)0x1000083f0
+(class_data_bits_t *) $34 = 0x00000001000083f0
+(lldb) p $34->data()
+(class_rw_t *) $35 = 0x0000000101204300
+(lldb) *$35
+error: '*$35' is not a valid command.
+(lldb) p *$35
+(class_rw_t) $36 = {
+  flags = 2684878849
+  witness = 1
+  ro_or_rw_ext = {
+    std::__1::atomic<unsigned long> = {
+      Value = 4302330705
+    }
+  }
+  firstSubclass = 0x00000001000083a8
+  nextSiblingClass = 0x00007fff883ac410
+}
+(lldb) p $35->methods()
+(const method_array_t) $37 = {
+  list_array_tt<method_t, method_list_t, method_list_t_authed_ptr> = {
+     = {
+      list = {
+        ptr = 0x0000000100008168
+      }
+      arrayAndFlag = 4295000424
+    }
+  }
+}
+(lldb) p $37.list
+(const method_list_t_authed_ptr<method_list_t>) $38 = {
+  ptr = 0x0000000100008168
+}
+(lldb) p $38.ptr
+(method_list_t *const) $39 = 0x0000000100008168
+(lldb) p *$39
+(method_list_t) $40 = {
+  entsize_list_tt<method_t, method_list_t, 4294901763, method_t::pointer_modifier> = (entsizeAndFlags = 27, count = 2)
+}
+(lldb) p $40.get(0).big()
+(method_t::big) $41 = {
+  name = "func3"
+  types = 0x0000000100003f5b "v16@0:8"
+  imp = 0x0000000100003c00 (KCObjcBuild`+[LGPerson func3])
+}
+(lldb) p $40.get(1).big()
+(method_t::big) $42 = {
+  name = "func4"
+  types = 0x0000000100003f5b "v16@0:8"
+  imp = 0x0000000100003c30 (KCObjcBuild`+[LGPerson func4])
+}
+(lldb) p $40.get(2).big()
+Assertion failed: (i < count), function get, file /Users/alan/Desktop/Learn/source_code/objc4-818.2/runtime/objc-runtime-new.h, line 624.
+error: Execution was interrupted, reason: signal SIGABRT.
+The process has been returned to the state before expression evaluation.
+(lldb) 
+```
