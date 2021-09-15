@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 4.2.0">
+<meta name="generator" content="Hexo 4.2.1">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
@@ -21,22 +21,22 @@
     var CONFIG = {"hostname":"liujiaboy.github.io","root":"/","scheme":"Pisces","version":"7.7.2","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="1. calloc在上一节中，我们知道开辟空间会用到calloc这个函数，那我们就追一下这个函数的内部逻辑。 但是发现calloc这个方法没有办法继续下一步追踪了，如图：  我们发现calloc定义在malloc&#x2F;_malloc.h文件下，我们也找到了对应的源码。我这里用的是一份可运行的源码。 接下来，直接上代码，在main函数中： 123&#x2F;&#x2F; 开辟40个字节的空间void *">
+  <meta name="description" content="calloc在上一节中，我们知道开辟空间会用到calloc这个函数，那我们就追一下这个函数的内部逻辑。 但是发现calloc这个方法没有办法继续下一步追踪了，如图：  我们发现calloc定义在malloc&#x2F;_malloc.h文件下，我们也找到了对应的源码。我这里用的是一份可运行的源码。 接下来，直接上代码，在main函数中： 123&#x2F;&#x2F; 开辟40个字节的空间void *p &amp;">
 <meta property="og:type" content="article">
 <meta property="og:title" content="oc-2-内存对齐">
 <meta property="og:url" content="http://liujiaboy.github.io/2021/04/17/OC%E5%8E%9F%E7%90%86/oc-2-%E5%86%85%E5%AD%98%E5%AF%B9%E9%BD%90/index.html">
 <meta property="og:site_name" content="不会飞的小白">
-<meta property="og:description" content="1. calloc在上一节中，我们知道开辟空间会用到calloc这个函数，那我们就追一下这个函数的内部逻辑。 但是发现calloc这个方法没有办法继续下一步追踪了，如图：  我们发现calloc定义在malloc&#x2F;_malloc.h文件下，我们也找到了对应的源码。我这里用的是一份可运行的源码。 接下来，直接上代码，在main函数中： 123&#x2F;&#x2F; 开辟40个字节的空间void *">
+<meta property="og:description" content="calloc在上一节中，我们知道开辟空间会用到calloc这个函数，那我们就追一下这个函数的内部逻辑。 但是发现calloc这个方法没有办法继续下一步追踪了，如图：  我们发现calloc定义在malloc&#x2F;_malloc.h文件下，我们也找到了对应的源码。我这里用的是一份可运行的源码。 接下来，直接上代码，在main函数中： 123&#x2F;&#x2F; 开辟40个字节的空间void *p &amp;">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="http://liujiaboy.github.io/2021/04/17/OC%E5%8E%9F%E7%90%86/oc-2-%E5%86%85%E5%AD%98%E5%AF%B9%E9%BD%90/calloc-1.jpg">
 <meta property="og:image" content="http://liujiaboy.github.io/2021/04/17/OC%E5%8E%9F%E7%90%86/oc-2-%E5%86%85%E5%AD%98%E5%AF%B9%E9%BD%90/malloc_zones.png">
 <meta property="og:image" content="http://liujiaboy.github.io/2021/04/17/OC%E5%8E%9F%E7%90%86/oc-2-%E5%86%85%E5%AD%98%E5%AF%B9%E9%BD%90/calloc-2.jpg">
 <meta property="og:image" content="http://liujiaboy.github.io/2021/04/17/OC%E5%8E%9F%E7%90%86/oc-2-%E5%86%85%E5%AD%98%E5%AF%B9%E9%BD%90/calloc-3.jpg">
 <meta property="article:published_time" content="2021-04-17T10:34:07.000Z">
-<meta property="article:modified_time" content="2021-06-09T03:42:34.059Z">
+<meta property="article:modified_time" content="2021-06-09T03:47:21.000Z">
 <meta property="article:author" content="不会飞的小白">
-<meta property="article:tag" content="Objective-C,">
 <meta property="article:tag" content="iOS">
+<meta property="article:tag" content="Objective-C,">
 <meta property="article:tag" content="runtime">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:image" content="http://liujiaboy.github.io/2021/04/17/OC%E5%8E%9F%E7%90%86/oc-2-%E5%86%85%E5%AD%98%E5%AF%B9%E9%BD%90/calloc-1.jpg">
@@ -207,7 +207,7 @@
                   <i class="fa fa-calendar-check-o"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-06-09 11:42:34" itemprop="dateModified" datetime="2021-06-09T11:42:34+08:00">2021-06-09</time>
+                <time title="修改时间：2021-06-09 11:47:21" itemprop="dateModified" datetime="2021-06-09T11:47:21+08:00">2021-06-09</time>
               </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -237,7 +237,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <h1 id="1-calloc"><a href="#1-calloc" class="headerlink" title="1. calloc"></a>1. calloc</h1><p>在上一节中，我们知道开辟空间会用到<code>calloc</code>这个函数，那我们就追一下这个函数的内部逻辑。</p>
+        <h1 id="calloc"><a href="#calloc" class="headerlink" title="calloc"></a>calloc</h1><p>在上一节中，我们知道开辟空间会用到<code>calloc</code>这个函数，那我们就追一下这个函数的内部逻辑。</p>
 <p>但是发现<code>calloc</code>这个方法没有办法继续下一步追踪了，如图：</p>
 <p><img src="calloc-1.jpg" alt=""></p>
 <p>我们发现<code>calloc</code>定义在<code>malloc/_malloc.h</code>文件下，我们也找到了对应的<a href="https://opensource.apple.com/tarballs/libmalloc/" target="_blank" rel="noopener">源码</a>。我这里用的是一份可运行的源码。</p>
@@ -292,7 +292,7 @@
 <p>这里计算出来的大小就是48。而<code>slot_key=47</code>。之后就是获取内存指针。</p>
 <p><img src="calloc-2.jpg" alt=""></p>
 <p>这就是<code>calloc</code>的流程，同时，再一次验证了，iOS在内存中是16字节对齐。</p>
-<h1 id="2-结构体的内存对齐"><a href="#2-结构体的内存对齐" class="headerlink" title="2. 结构体的内存对齐"></a>2. 结构体的内存对齐</h1><p>结构体内存对齐3打原则：</p>
+<h1 id="结构体的内存对齐"><a href="#结构体的内存对齐" class="headerlink" title="结构体的内存对齐"></a>结构体的内存对齐</h1><p>结构体内存对齐3打原则：</p>
 <blockquote>
 <ol>
 <li>数据成员对⻬规则：结构体(struct)的数据成员，第一个数据成员放在offset为0的地方，以后每个数据成员存储的起始位置要从该成员大小或者成员的子成员大小(只要该成员有子成员，比如说是数组，结构体等)的整数倍开始(比如int为4字节,则要从4的整数倍地址开始存储。</li>
@@ -313,7 +313,7 @@
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">struct Struct3 &#123;</span><br><span class="line">    double a;   &#x2F;&#x2F;8 (0-7)</span><br><span class="line">    int b;      &#x2F;&#x2F;4 (8 9 10 11)</span><br><span class="line">    char c;     &#x2F;&#x2F;1 (12)</span><br><span class="line">    struct Struct2 str_2;   &#x2F;&#x2F; 13 14 15 (16 - 31)</span><br><span class="line">&#125;str3;</span><br><span class="line"></span><br><span class="line">NSLog(@&quot;str3 &#x3D; %lu&quot;, sizeof(str3));</span><br></pre></td></tr></table></figure>
 
 <p>按照内存对齐第二条原则，结构体成员从其内部最大成员的size的整数倍开始。c的位置是12，接下来的位置是13，不满足8的整数倍。所以按照原则，前面补齐，从16位开始。所以str3结构体的大小为32。</p>
-<h1 id="3-对象的内存对齐"><a href="#3-对象的内存对齐" class="headerlink" title="3. 对象的内存对齐"></a>3. 对象的内存对齐</h1><p>老样子，先看代码哈：</p>
+<h1 id="对象的内存对齐"><a href="#对象的内存对齐" class="headerlink" title="对象的内存对齐"></a>对象的内存对齐</h1><p>老样子，先看代码哈：</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">@interface Person : NSObject</span><br><span class="line"></span><br><span class="line">@property (nonatomic, copy) NSString *name;</span><br><span class="line">@property (nonatomic, assign) int age;</span><br><span class="line">@property (nonatomic, assign) int score;</span><br><span class="line">@property (nonatomic, assign) long height;</span><br><span class="line">@property (nonatomic) char c1;</span><br><span class="line">@property (nonatomic) char c2;</span><br><span class="line"></span><br><span class="line">@end</span><br><span class="line"></span><br><span class="line">main() &#123;</span><br><span class="line"></span><br><span class="line">Person *person &#x3D; [Person alloc];</span><br><span class="line">person.name &#x3D; @&quot;name&quot;;</span><br><span class="line">person.age &#x3D; 18;</span><br><span class="line">person.score &#x3D; 20;</span><br><span class="line">person.height &#x3D; 180;</span><br><span class="line">person.c1 &#x3D; &#39;a&#39;;</span><br><span class="line">person.c2 &#x3D; &#39;b&#39;;</span><br><span class="line"></span><br><span class="line">NSLog(@&quot;%@ - %lu - %lu - %lu&quot;,person,sizeof(person),class_getInstanceSize([Person class]),malloc_size((__bridge const void *)(person)));</span><br><span class="line">        </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>我们在NSLog上打个断点。有时间的话，可以把属性先注释掉，从0开始，一个属性一个属性的加起来看输出的是什么结果。</p>
@@ -343,7 +343,7 @@
 </ul>
 </li>
 </ol>
-<h1 id="3-1-float、double"><a href="#3-1-float、double" class="headerlink" title="3.1 float、double"></a>3.1 float、double</h1><p>加如改变其中的一个属性位double类型的，又会是什么情况呢？我这里把上面的height改为了double类型。看一下输出结果</p>
+<h2 id="float、double"><a href="#float、double" class="headerlink" title="float、double"></a>float、double</h2><p>加如改变其中的一个属性位double类型的，又会是什么情况呢？我这里把上面的height改为了double类型。看一下输出结果</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">(lldb) x&#x2F;8gx person</span><br><span class="line">0x600000045530: 0x000000010626d808 0x0000001200006261</span><br><span class="line">0x600000045540: 0x0000000000000014 0x0000000106268038</span><br><span class="line">0x600000045550: 0x4066800000000000 0x0000000000000000</span><br><span class="line">0x600000045560: 0x0000000000000000 0x0000000000000000</span><br><span class="line">(lldb) po 0x4066800000000000</span><br><span class="line">4640537203540230144</span><br></pre></td></tr></table></figure>
 
 <p>诶<del>~</del> 怎么没有输出180呢？是因为对于float、double类型的数据，系统会做一次特殊的转换处理。我们没有办法直接从内存中读出double类型的值。</p>
@@ -354,7 +354,7 @@
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">(lldb) p&#x2F;f 0x4066800000000000</span><br><span class="line">(long) $5 &#x3D; 180</span><br></pre></td></tr></table></figure>
 
 <p>这就是内存补齐的内容</p>
-<h1 id="4-总结："><a href="#4-总结：" class="headerlink" title="4. 总结："></a>4. 总结：</h1><ul>
+<h1 id="总结："><a href="#总结：" class="headerlink" title="总结："></a>总结：</h1><ul>
 <li>calloc的流程。</li>
 <li>结构体的对齐规则。</li>
 <li>类对象的属性是8个字节对齐的，但是在内存空间是16个字节对齐。</li>
@@ -370,8 +370,8 @@
 
       <footer class="post-footer">
           <div class="post-tags">
-              <a href="/tags/Objective-C/" rel="tag"># Objective-C,</a>
               <a href="/tags/iOS/" rel="tag"># iOS</a>
+              <a href="/tags/Objective-C/" rel="tag"># Objective-C,</a>
               <a href="/tags/runtime/" rel="tag"># runtime</a>
           </div>
 
@@ -385,7 +385,7 @@
       <i class="fa fa-chevron-left"></i> OC-1-alloc、init、new
     </a></div>
       <div class="post-nav-item">
-    <a href="/2021/04/18/OC%E5%8E%9F%E7%90%86/%E5%AF%B9%E8%B1%A1%E7%9A%84%E6%9C%AC%E8%B4%A8/" rel="next" title="3.对象的本质">
+    <a href="/2021/04/18/OC%E5%8E%9F%E7%90%86/oc-3-%E5%AF%B9%E8%B1%A1%E7%9A%84%E6%9C%AC%E8%B4%A8/" rel="next" title="3.对象的本质">
       3.对象的本质 <i class="fa fa-chevron-right"></i>
     </a></div>
     </div>
@@ -447,7 +447,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#1-calloc"><span class="nav-number">1.</span> <span class="nav-text">1. calloc</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#malloc-zone-calloc"><span class="nav-number">1.1.</span> <span class="nav-text">_malloc_zone_calloc</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#malloc-zone-t"><span class="nav-number">1.2.</span> <span class="nav-text">_malloc_zone_t</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#nano-calloc"><span class="nav-number">1.3.</span> <span class="nav-text">nano_calloc</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#segregated-size-to-fit"><span class="nav-number">1.4.</span> <span class="nav-text">segregated_size_to_fit</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#2-结构体的内存对齐"><span class="nav-number">2.</span> <span class="nav-text">2. 结构体的内存对齐</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#3-对象的内存对齐"><span class="nav-number">3.</span> <span class="nav-text">3. 对象的内存对齐</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#3-1-float、double"><span class="nav-number">4.</span> <span class="nav-text">3.1 float、double</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#4-总结："><span class="nav-number">5.</span> <span class="nav-text">4. 总结：</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#引用"><span class="nav-number">6.</span> <span class="nav-text">引用</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#calloc"><span class="nav-number">1.</span> <span class="nav-text">calloc</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#malloc-zone-calloc"><span class="nav-number">1.1.</span> <span class="nav-text">_malloc_zone_calloc</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#malloc-zone-t"><span class="nav-number">1.2.</span> <span class="nav-text">_malloc_zone_t</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#nano-calloc"><span class="nav-number">1.3.</span> <span class="nav-text">nano_calloc</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#segregated-size-to-fit"><span class="nav-number">1.4.</span> <span class="nav-text">segregated_size_to_fit</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#结构体的内存对齐"><span class="nav-number">2.</span> <span class="nav-text">结构体的内存对齐</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#对象的内存对齐"><span class="nav-number">3.</span> <span class="nav-text">对象的内存对齐</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#float、double"><span class="nav-number">3.1.</span> <span class="nav-text">float、double</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#总结："><span class="nav-number">4.</span> <span class="nav-text">总结：</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#引用"><span class="nav-number">5.</span> <span class="nav-text">引用</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -463,20 +463,20 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">37</span>
+          <span class="site-state-item-count">42</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
       <div class="site-state-item site-state-categories">
             <a href="/categories/">
           
-        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-count">5</span>
         <span class="site-state-item-name">分类</span></a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">15</span>
+        <span class="site-state-item-count">17</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -521,7 +521,7 @@
   </span>
   <span class="author" itemprop="copyrightHolder">不会飞的小白</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.2.0
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.2.1
   </div>
   <span class="post-meta-divider">|</span>
   <div class="theme-info">主题 – <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v7.7.2
