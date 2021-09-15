@@ -99,7 +99,7 @@ theme: next #maupassant
 ## Docs: https://hexo.io/docs/deployment.html
 deploy:
   type: git
-  repo: https://github.com/liujiaboy/liujiaboy.github.io.git
+  repo: git@github.com:liujiaboy/liujiaboy.github.io.git
   branch: master
 
 
