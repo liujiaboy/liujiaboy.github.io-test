@@ -2,6 +2,9 @@
 title: flutter-规范
 date: 2021-12-27 10:04:25
 tags:
+    - flutter
+categories:
+    - flutter
 ---
 
 ## 核心原则
