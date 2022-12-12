@@ -306,7 +306,7 @@ dispatch_get_main_queue(void)
 > A dispatch queue that is bound to the app's main thread and executes tasks serially on that thread.
 
 ```
-typedef NSObject<OS_dispatch_queue_main> *dispatch_queue_main_t;
+typedef struct dispatch_queue_static_s *dispatch_queue_main_t;
 ```
 
 可以看出来`OS_dispatch_queue_main`是一个类。
